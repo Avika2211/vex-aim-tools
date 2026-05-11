@@ -14,6 +14,7 @@ from PyQt6.QtQuick import QQuickImageProvider, QQuickView
 from aim_fsm.camera import AIVISION_RESOLUTION_SCALE  # legacy code expects this in scope
 
 from .help_texts import WORLD_HELP_TEXT
+from .lifecycle import stop_timer_if_view_hidden
 from .worldmap_model import WorldMapModel
 
 
@@ -131,6 +132,7 @@ class WorldMapViewer(QObject):
         self._view = QQuickView()
         self._view.setTitle(self._window_name)
         self._view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
+        self._bind_visibility_handler()
 
         self._context = self._initialise_qml_context()
         self.refresh()
@@ -151,6 +153,9 @@ class WorldMapViewer(QObject):
     def stop(self) -> None:
         self._timer.stop()
         self._view.close()
+
+    def is_visible(self) -> bool:
+        return self._view.isVisible()
 
     def refresh(self) -> None:
         snapshot = getattr(self._worldmap, "snapshot_objects", None)
@@ -216,6 +221,16 @@ class WorldMapViewer(QObject):
             errors = "\n".join(error.toString() for error in self._view.errors())
             raise RuntimeError(f"Failed to load WorldMapView.qml:\n{errors}")
         return context
+
+    def _bind_visibility_handler(self) -> None:
+        signal = getattr(self._view, "visibleChanged", None)
+        if signal is None:
+            signal = getattr(self._view, "visibilityChanged", None)
+        if signal is not None:
+            signal.connect(self._handle_visibility_changed)
+
+    def _handle_visibility_changed(self, *args) -> None:
+        stop_timer_if_view_hidden(self._view, self._timer)
 
     def _focus_root(self) -> None:
         try:

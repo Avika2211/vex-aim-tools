@@ -17,6 +17,7 @@ except ImportError:  # pragma: no cover - optional during standalone tools
     AIVISION_RESOLUTION_SCALE = 1.0
 
 from .help_texts import PARTICLE_HELP_TEXT
+from .lifecycle import stop_timer_if_view_hidden
 from .particle_model import LandmarkModel, ParticleLayerModel, ParticleSummary
 
 
@@ -112,6 +113,7 @@ class ParticleViewer(QObject):
         self._view = QQuickView()
         self._view.setTitle(self._window_name)
         self._view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
+        self._bind_visibility_handler()
 
         self._context = self._initialise_qml_context()
         self.refresh()
@@ -131,6 +133,9 @@ class ParticleViewer(QObject):
     def stop(self) -> None:
         self._timer.stop()
         self._view.close()
+
+    def is_visible(self) -> bool:
+        return self._view.isVisible()
 
     def refresh(self) -> None:
         particle_filter = getattr(self._robot, "particle_filter", None)
@@ -368,6 +373,16 @@ class ParticleViewer(QObject):
             errors = "\n".join(error.toString() for error in self._view.errors())
             raise RuntimeError(f"Failed to load ParticleView.qml:\n{errors}")
         return context
+
+    def _bind_visibility_handler(self) -> None:
+        signal = getattr(self._view, "visibleChanged", None)
+        if signal is None:
+            signal = getattr(self._view, "visibilityChanged", None)
+        if signal is not None:
+            signal.connect(self._handle_visibility_changed)
+
+    def _handle_visibility_changed(self, *args) -> None:
+        stop_timer_if_view_hidden(self._view, self._timer)
 
     def _focus_root(self) -> None:
         try:

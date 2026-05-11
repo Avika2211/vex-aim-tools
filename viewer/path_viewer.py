@@ -13,6 +13,7 @@ from PyQt6.QtQuick import QQuickView
 from aim_fsm.rrt import RRT
 
 from .help_texts import PATH_HELP_TEXT
+from .lifecycle import stop_timer_if_view_hidden
 from .path_model import (
     CircleItem,
     PathNodeModel,
@@ -125,6 +126,7 @@ class PathViewer(QObject):
         self._view = QQuickView()
         self._view.setTitle(self._window_name)
         self._view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
+        self._bind_visibility_handler()
 
         self._context = self._initialise_qml_context()
         self.refresh()
@@ -175,6 +177,9 @@ class PathViewer(QObject):
     def stop(self) -> None:
         self._timer.stop()
         self._view.close()
+
+    def is_visible(self) -> bool:
+        return self._view.isVisible()
 
     def clear(self) -> None:
         self._scene_provider.clear_extra_trees()
@@ -325,6 +330,16 @@ class PathViewer(QObject):
             errors = "\n".join(error.toString() for error in self._view.errors())
             raise RuntimeError(f"Failed to load PathViewer.qml:\n{errors}")
         return context
+
+    def _bind_visibility_handler(self) -> None:
+        signal = getattr(self._view, "visibleChanged", None)
+        if signal is None:
+            signal = getattr(self._view, "visibilityChanged", None)
+        if signal is not None:
+            signal.connect(self._handle_visibility_changed)
+
+    def _handle_visibility_changed(self, *args) -> None:
+        stop_timer_if_view_hidden(self._view, self._timer)
 
     def _focus_root(self) -> None:
         try:

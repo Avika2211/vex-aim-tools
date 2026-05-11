@@ -91,7 +91,7 @@ class WindowManager:
         """
         if not self._on_main_thread():
             window = self.get_window(window_name)
-            if window is not None:
+            if window is not None and window.is_visible():
                 window.display(image)
                 return
             with self._pending_lock:
@@ -101,11 +101,11 @@ class WindowManager:
         self._imshow_main_thread(window_name, image)
         self._process_events()
 
-    def process_pending(self, process_events: bool = True) -> None:
+    def process_pending(self, process_events: bool = True) -> bool:
         if not self._on_main_thread():
-            return
+            return False
         if self._processing:
-            return
+            return False
         self._processing = True
         try:
             pending_ops = []
@@ -130,29 +130,26 @@ class WindowManager:
             for window_name, image in pending_images.items():
                 self._imshow_main_thread(window_name, image)
 
-            if process_events and (pending_ops or pending_images):
+            processed = bool(pending_ops or pending_images)
+            if process_events and processed:
                 self._process_events()
+            return processed
         finally:
             self._processing = False
 
     def _imshow_main_thread(self, window_name: str, image: np.ndarray) -> None:
-        # Check if window exists but was closed by user
         window = self.get_window(window_name)
-        if window is not None and not window.is_visible():
-            # Window was manually closed, remove and recreate
-            # This matches cv2 behavior where closing and re-imshow() works
-            self._destroy_window_main_thread(window_name)
-            window = None
-
-        # Create window if it doesn't exist
         if window is None:
             window = self.create_window(window_name)
+        if not window.is_visible():
             window.show()
 
         window.display(image)
 
     def _named_window_main_thread(self, window_name: str) -> None:
-        self.create_window(window_name)
+        window = self.create_window(window_name)
+        if not window.is_visible():
+            window.show()
 
     def _destroy_window_main_thread(self, window_name: str) -> None:
         with self._lock:
@@ -196,7 +193,8 @@ def namedWindow(window_name: str, flags: int = 0) -> None:
         flags: Ignored (for cv2 compatibility)
     """
     if _manager._on_main_thread():
-        _manager.create_window(window_name)
+        _manager._named_window_main_thread(window_name)
+        _manager._process_events()
     else:
         _manager._pending_ops.put(("namedWindow", window_name))
 
@@ -225,9 +223,9 @@ def destroyAllWindows() -> None:
     _manager.destroy_all_windows()
 
 
-def imshow_pump() -> None:
+def imshow_pump() -> bool:
     """Process queued imshow window operations on the main thread."""
-    _manager.process_pending()
+    return _manager.process_pending()
 
 
 __all__ = [

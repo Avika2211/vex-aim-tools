@@ -28,6 +28,7 @@ from viewer.particle_viewer import ParticleViewer
 from .rrt import RRT
 from viewer.path_viewer import PathViewer
 from viewer.camera_overlay import apply_overlays
+from viewer.lifecycle import ensure_viewer
 from .camera import AIVISION_RESOLUTION_SCALE
 from . import pilot
 #from . import custom_objs
@@ -148,26 +149,32 @@ class StateMachineProgram(StateNode):
 
         # Launch viewers
         if self.launch_cam_viewer:
-            if not self.robot.cam_viewer:
-                self.robot.cam_viewer = \
-                    CamViewer(self.robot, user_annotate_function=self.user_annotate)
-                self.robot.cam_viewer.start()
+            ensure_viewer(
+                self.robot,
+                'cam_viewer',
+                lambda: CamViewer(self.robot, user_annotate_function=self.user_annotate),
+            )
 
         if self.launch_worldmap_viewer:
-            if not self.robot.worldmap_viewer is True:
-                self.robot.worldmap_viewer = WorldMapViewer(self.robot)
-                self.robot.worldmap_viewer.start()
+            ensure_viewer(
+                self.robot,
+                'worldmap_viewer',
+                lambda: WorldMapViewer(self.robot),
+            )
 
         if self.launch_particle_viewer:
-            if not self.robot.particle_viewer:
-                self.robot.particle_viewer = \
-                    ParticleViewer(self.robot, scale=self.particle_viewer_scale)
-                self.robot.particle_viewer.start()
+            ensure_viewer(
+                self.robot,
+                'particle_viewer',
+                lambda: ParticleViewer(self.robot, scale=self.particle_viewer_scale),
+            )
 
         if self.launch_path_viewer:
-            if not self.robot.path_viewer:
-                self.robot.path_viewer = PathViewer(self.robot, self.robot.rrt)
-            self.robot.path_viewer.start()
+            ensure_viewer(
+                self.robot,
+                'path_viewer',
+                lambda: PathViewer(self.robot, self.robot.rrt),
+            )
 
         if self.speech:
             self.robot.speech_listener.enable()

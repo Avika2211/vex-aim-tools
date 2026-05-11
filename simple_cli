@@ -42,6 +42,7 @@ except:
 import aim_fsm
 from aim_fsm import *
 from aim_fsm.program import runfsm as _program_runfsm
+from viewer.lifecycle import ensure_viewer as _ensure_viewer_for_target
 
 try:
     from viewer.imshow_manager import imshow_pump
@@ -111,18 +112,7 @@ def runfsm(module_name):
 
 def _ensure_viewer(attr, factory):
     target = globals().get('robot')
-    if target is None:
-        return None
-
-    viewer = getattr(target, attr, None)
-    if viewer and viewer is not True:
-        return viewer
-
-    viewer = factory()
-    if hasattr(viewer, 'start'):
-        viewer.start()
-    setattr(target, attr, viewer)
-    return viewer
+    return _ensure_viewer_for_target(target, attr, factory)
 
 
 def _prime_default_viewers(program, launch_overrides=None):
@@ -135,16 +125,16 @@ def _prime_default_viewers(program, launch_overrides=None):
 
     flags = launch_overrides or {}
     if flags.get('cam', getattr(program, 'launch_cam_viewer', False)):
-        _ensure_viewer('cam_viewer', lambda: CamViewer(target_robot))
+        _ensure_viewer_for_target(target_robot, 'cam_viewer', lambda: CamViewer(target_robot))
 
     if flags.get('worldmap', getattr(program, 'launch_worldmap_viewer', False)):
-        _ensure_viewer('worldmap_viewer', lambda: WorldMapViewer(target_robot))
+        _ensure_viewer_for_target(target_robot, 'worldmap_viewer', lambda: WorldMapViewer(target_robot))
 
     if flags.get('particle', getattr(program, 'launch_particle_viewer', False)):
-        _ensure_viewer('particle_viewer', lambda: ParticleViewer(target_robot))
+        _ensure_viewer_for_target(target_robot, 'particle_viewer', lambda: ParticleViewer(target_robot))
 
     if flags.get('path', getattr(program, 'launch_path_viewer', False)):
-        _ensure_viewer('path_viewer', lambda: PathViewer(target_robot))
+        _ensure_viewer_for_target(target_robot, 'path_viewer', lambda: PathViewer(target_robot))
 
 
 _pending_viewer_launches = SimpleQueue()
@@ -194,7 +184,7 @@ def _drain_pending_viewer_launches_once():
         _prime_default_viewers(program, launch_flags)
         processed = True
     if imshow_pump is not None:
-        imshow_pump()
+        processed = imshow_pump() or processed
     return processed
 
 
@@ -225,6 +215,12 @@ def _process_qt_events_if_needed():
     app = QGuiApplication.instance()
     if app:
         app.processEvents()
+
+
+def _flush_main_thread_gui(timeout=0.15):
+    _process_qt_events_if_needed()
+    _process_pending_viewer_launches(timeout=timeout)
+    _process_qt_events_if_needed()
 
 def cli_loop(_robot):
     global ans, RUNNING, robot, file_to_run, running_fsm
@@ -275,12 +271,14 @@ def cli_loop(_robot):
             continue
         elif cli_loop._line[0:2] == '. ':
             do_hear_command(cli_loop._line[2:])
+            _flush_main_thread_gui()
             continue
         elif cli_loop._line[0:2] == '.?':
             show_messages(cli_loop._line)
             continue
         elif cli_loop._line[0:3] == 'tm ' or cli_loop._line == 'tm':
             text_message(cli_loop._line[3:])
+            _flush_main_thread_gui()
             continue
         elif cli_loop._line[0:5] == 'show ' or cli_loop._line == 'show':
             show_args = cli_loop._line[5:].split(' ')
@@ -396,7 +394,9 @@ def show_stuff(args):
             running_fsm.cam_viewer = True
         _ensure_viewer('cam_viewer', lambda: CamViewer(robot))
     elif spec == "crosshairs":
-        robot.cam_viewer.crosshairs = not robot.cam_viewer.crosshairs
+        viewer = _ensure_viewer('cam_viewer', lambda: CamViewer(robot))
+        if viewer is not None:
+            viewer.crosshairs = not viewer.crosshairs
     elif spec == "particle_viewer":
         _ensure_viewer('particle_viewer', lambda: ParticleViewer(robot))
     elif spec == "path_viewer":
