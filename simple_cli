@@ -643,5 +643,13 @@ evbase.robot_for_loading = robot
 
 ################ Launch
 
-file_to_run = sys.argv[1] if len(sys.argv) > 1 else None
+if len(sys.argv) > 1:
+    file_to_run = sys.argv[1]
+    if file_to_run[-4:] == '.fsm':
+        file_to_run = file_to_run[:-4]
+    elif file_ro_run[-3:] == '.py':
+        file_to_run = file_to_run[:-3]
+else:
+    file_to_run = None
+
 cli_loop(robot)

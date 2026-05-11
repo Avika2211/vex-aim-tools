@@ -147,6 +147,12 @@ new_preamble = """
 
 class Celeste(StateMachineProgram):
 
+    def __init__(self):
+        super().__init__(launch_cam_viewer=True,
+                         launch_worldmap_viewer=True,
+                         launch_particle_viewer=True,
+                         launch_path_viewer=True)
+
     def picked_up_celeste(self):
         self.robot.gpt_note_for_later("You have been picked up.")
 
