@@ -360,7 +360,9 @@ class Celeste(StateMachineProgram):
         super().start(event)
         
     $setup{
-        Print(f"Celeste version {CELESTE_VERSION}") =N=> Say("Talk to me") =C=> loop
+        Print(f"Celeste version {CELESTE_VERSION}") =N=>
+          TagDetection(True) =N=>
+            Say("Talk to me") =C=> loop
 
         putdown: Say(["I'm good", "Okay then", "I'm back", "Now then"]) =C=> loop
 
