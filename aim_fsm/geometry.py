@@ -9,6 +9,47 @@ from math import sin, cos, tan, pi, atan2, asin, sqrt, floor, ceil
 from fractions import Fraction
 import copy
 
+# Distance and Angle classes for motion nodes
+
+class Distance():
+    def __init__(self, mm=0.0):
+        super().__init__()
+        self.value = float(mm)
+
+    def __float__(self):
+        return self.value
+
+    def __repr__(self):
+        return f'Distance(mm={self.value:g})'
+
+class Angle():
+    def __init__(self, radians=None, degrees=None):
+        super().__init__()
+        if radians is not None:
+            if degrees is not None:
+                raise ValueError('Cannot specify both degrees and radians.')
+            else:
+                self.value = float(radians)
+        elif degrees is not None:
+            self.value = degrees / 180 * pi
+        else:
+            self.value = 0.0
+
+    def __float__(self):
+        return self.value
+
+    def __repr__(self):
+        return f'Angle(radians={self.value:g})'
+
+    @property
+    def radians(self):
+        return self.value
+
+    @property
+    def degrees(self):
+        return self.value / pi * 180
+
+
 def point(x=0, y=0, z=0, s=1):
     return np.array([ [x], [y], [z], [s] ])
 

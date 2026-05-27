@@ -24,6 +24,7 @@ camera_tilt = 23.7 # degrees downward (measured for AIM-32A57C18)
 class AIMKinematics(Kinematics):
     body_diameter = 57 # mm
     wheel_diameter = 24 # mm
+    wheel_distance = 25 # mm from center
     robot_height = 72 # mm
     kicker_extension = 15 # mm
 
@@ -73,14 +74,14 @@ class AIMKinematics(Kinematics):
                              description = 'Camera frame: x right, y down, z depth',
                              d = r2-r1)
 
-        # display frame from Lab 4
+        # display frame
         display_frame = Joint('display_frame', parent=base_frame,
                               description = 'LED display; x is down, y is right',
                               d = self.robot_height,
                               theta = pi)
 
 
-        # wheel frames from Lab 4
+        # wheel frames
         left_dummy = Joint('left_dummy', parent=base_frame,
                            description = 'Dummy joint for left wheel',
                            d = self.wheel_diameter/2, # axle height in mm
@@ -89,7 +90,7 @@ class AIMKinematics(Kinematics):
 
         left_wheel_frame = Joint('left_wheel', parent=left_dummy,
                                  description = 'Left wheel axle; y is up',
-                                 d = self.body_diameter/2,
+                                 d = self.wheel_distance,
                                  theta = pi)
 
         right_dummy = Joint('left_dummy', parent=base_frame,
@@ -100,7 +101,7 @@ class AIMKinematics(Kinematics):
 
         right_wheel_frame = Joint('right_wheel', parent=right_dummy,
                                   description = 'Right wheel axle; y is up',
-                                  d = self.body_diameter/2,
+                                  d = self.wheel_distance,
                                   theta = pi)
 
         rear_dummy = Joint('rear_dummy', parent=base_frame,
@@ -111,7 +112,7 @@ class AIMKinematics(Kinematics):
 
         rear_wheel_frame = Joint('rear_wheel', parent=rear_dummy,
                                  description = 'Rear wheel axle; y is up',
-                                 d = self.body_diameter/2)
+                                 d = self.wheel_distance)
 
 
         joints = [base_frame, world_frame, kicker_frame, camera_dummy, camera_frame,

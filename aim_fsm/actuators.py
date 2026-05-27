@@ -1,12 +1,14 @@
 import asyncio
 import os
-from math import pi
+import math
+from math import pi, sin, cos, atan2
 
 from gtts import gTTS
 import google.cloud
 from google.cloud import texttospeech
 
 import vex
+from .geometry import wrap_angle
 
 class Actuator():
     class ActuatorLocked(Exception): pass
@@ -55,9 +57,11 @@ class Actuator():
 class DriveActuator(Actuator):
     def __init__(self, robot):
         super().__init__(robot, 'drive')
+        self.arc_program = None
 
     def stop(self):
         self.robot.robot0.stop_all_movement()
+        self.arc_program = None
 
     def status_update(self):
         # Bad timing can cause a just-started motion node to appear to
@@ -68,11 +72,17 @@ class DriveActuator(Actuator):
             if not self.started:
                 #print('drive actuator: robot started moving for', self.holder)
                 self.started = True  # started moving, now wait for completion
+            elif self.arc_program:
+                current_x = self.robot.robot0.get_y_position()
+                current_y = - self.robot.robot0.get_x_position()
+                if self.arc_program.is_done(current_x, current_y):
+                    self.stop()   # will cause completion once robot is stopped
         elif self.holder and self.started:  # robot has just stopped; signal completion
             #print('drive actuator signaling completion to', self.holder)
             self.holder.complete()
             self.holder = None
             self.started = False
+            self.arc_program = None
 
     def turn(self, node, angle_rads, turn_speed=None):
         self.lock(node)
@@ -128,6 +138,103 @@ class DriveActuator(Actuator):
         self.started = False
         self.robot.world_map.pause_visibility()
         self.robot.robot0.spin_wheels(left_vel, right_vel, back_vel)
+
+    class ArcProgram():
+        "Calculations for driving along an arc; used in drive_arc and status_update."
+        def __init__(self, start_x, start_y, start_theta, radius, angle, distance, omega):
+            self.start_x = start_x
+            self.start_y = start_y
+            self.start_theta = start_theta
+            self.radius = radius
+            self.angle = angle
+            self.distance = distance
+            self.omega = omega
+            self.sign_omega = math.copysign(1.0, omega)
+
+            if distance is not None:
+                self.target = abs(distance) / radius   # convert to radians
+            else:
+                self.target = abs(angle)
+
+            self.center_x = start_x + radius * cos(start_theta + pi/2)
+            self.center_y = start_y + radius * sin(start_theta + pi/2)
+
+            self.prev_x = start_x
+            self.prev_y = start_y
+            self.accumulated = 0.0
+            
+        def is_done(self, current_x, current_y):
+            ix = self.prev_x - self.center_x
+            iy = self.prev_y - self. center_y
+            cx = current_x - self.center_x
+            cy = current_y - self.center_y
+
+            # atan2(cross, dot) is robust to the robot drifting off the ideal circle.
+            self.accumulated += atan2(ix * cy - iy * cx, ix * cx + iy * cy)
+            self.prev_x, self.prev_y = current_x, current_y
+
+            return self.accumulated * self.sign_omega >= self.target
+
+        def __repr__(self):
+            return f'<ArcProgram ' + \
+                f'start={self.start_x:.1f},{self.start_y:.1f}  ' + \
+                f'theta={self.start_theta*180/pi:.1f} deg.  ' + \
+                f'center={self.center_x:.1f},{self.center_y:.1f}  ' + \
+                f'radius={self.radius:.1f} ' + \
+                ('' if self.angle is None else f' angle={self.angle:.3f}') + \
+                ('' if self.distance is None else f' distance={self.distance:.1f}') + \
+                f'  target={self.target:.3f}>'
+
+
+    sin60 = math.sqrt(3) / 2
+
+    def drive_arc(self, node, radius, angle=None, distance=None, speed=1.0):
+        """
+        Set wheel velocities to drive the robot along a circular arc.
+
+        radius:   Turning radius in mm. Positive = arc center to the left (CCW turn).
+        angle:    Intended arc angle in radians. Mutually exclusive with distance.
+        distance: Intended arc length in mm. Mutually exclusive with angle.
+        speed:    Angular rate in rad/s. Default 1.0.
+
+        Negative speed, angle, or distance each reverse the direction of travel;
+        two negatives cancel. Termination is the caller's responsibility.
+        """
+
+        if angle is not None and distance is not None:
+            raise ValueError("Specify angle or distance, not both.")
+        if radius == 0:
+            raise ValueError("radius must be nonzero.")
+        if speed == 0:
+            raise ValueError("speed must be nonzero.")
+
+        if angle is not None:
+            sign_term = math.copysign(1.0, angle * radius)
+        elif distance is not None:
+            sign_term = math.copysign(1.0, distance * radius)
+        else:
+            raise ValueError('Must specify either angle or distance to travel.')
+
+        omega = speed * sign_term
+        vx    = omega * radius
+
+        self.lock(node)
+        self.started = False
+        self.robot.world_map.pause_visibility()
+
+        start_x = self.robot.robot0.get_y_position()
+        start_y = - self.robot.robot0.get_x_position()
+        start_theta = wrap_angle(-self.robot.robot0.inertial.get_heading()/180 * pi)
+        self.arc_program = self.ArcProgram(start_x, start_y, start_theta, radius,
+                                           angle, distance, omega)
+
+        wheel_distance = self.robot.kine.wheel_distance
+        # v_wheel = -vx*sin(phi) + omega*r  (vy=0 for a pure arc)
+        v_lf =  vx * self.sin60 - omega * wheel_distance   # phi = +60 deg
+        v_rf = -vx * self.sin60 - omega * wheel_distance   # phi = -60 deg
+        v_b  =                  - omega * wheel_distance   # phi = 180 deg, sin(180)=0
+
+        self.robot.robot0.spin_wheels(v_lf, v_rf, v_b)
 
 
 class SoundActuator(Actuator):
