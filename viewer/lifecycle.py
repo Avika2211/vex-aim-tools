@@ -17,8 +17,8 @@ def viewer_is_visible(viewer: Any) -> bool:
             return bool(probe())
         except Exception:
             return False
-
-    return False
+    else:
+        return False
 
 
 def ensure_viewer(target: Any, attr: str, factory: Callable[[], Any]) -> Any:

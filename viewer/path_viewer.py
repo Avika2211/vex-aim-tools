@@ -166,6 +166,7 @@ class PathViewer(QObject):
     # Legacy-compatible surface
 
     def start(self) -> None:
+        import threading
         if self._auto_redisplay and not self._timer.isActive() and self._timer.interval() > 0:
             self._timer.start()
         self._view.setWidth(self._width)

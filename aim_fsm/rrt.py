@@ -310,7 +310,7 @@ class RRT():
         """Smooth a path by picking random subsequences and replacing
         them with a direct link if there is no collision."""
         smoothed_path = self.path
-        print('smoothing path of length', len(smoothed_path))
+        print('now smoothing path of length', len(smoothed_path))
         for _ in range(0, 5*len(smoothed_path)):
             L = len(smoothed_path)
             if L <= 2: break
@@ -353,7 +353,7 @@ class RRT():
         if end_spec is None:
             return None
         # no collision, so snip out nodes i+1 ... j-1
-        # print('linear: stitching','%d:'%i,smoothed_path[i],'to %d:'%j,smoothed_path[j])
+        #print('linear: stitching','%d:'%i,smoothed_path[i],'to %d:'%j,smoothed_path[j])
         if not end_spec:
             smoothed_path[j].parent = smoothed_path[i]
             smoothed_path[j].q = new_q

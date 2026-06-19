@@ -170,6 +170,7 @@ class StateMachineProgram(StateNode):
             )
 
         if self.launch_path_viewer:
+            print('ensure viewer')
             ensure_viewer(
                 self.robot,
                 'path_viewer',

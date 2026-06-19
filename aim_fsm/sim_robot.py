@@ -10,7 +10,7 @@ from .evbase import EventRouter
 from .particle import SLAMParticleFilter
 from .rrt import RRT
 from .path_planner import PathPlanner
-from .utils import Pose
+from .utils import PoseEstimate
 from .worldmap import WorldMap
 
 class SimRobot0():
@@ -31,7 +31,7 @@ class SimRobot():
         robot.path_planner = PathPlanner(robot)
         robot.robot0 = SimRobot0()
 
-        robot.pose = Pose(0, 0, 0, 0)
+        robot.pose = PoseEstimate(0, 0, 0, 0)
         robot.holding = None
 
         if not run_in_cloud:
@@ -44,3 +44,7 @@ class SimRobot():
         robot.kine = AIMKinematics(robot)
         robot.rrt = RRT(robot)
 
+    def set_pose(self, x, y, z, theta, reset_particles=True):
+        self.pose = PoseEstimate(x, y, z, theta)
+        if self.particle_filter and reset_particles:
+            self.particle_filter.set_pose(x,y,theta)
