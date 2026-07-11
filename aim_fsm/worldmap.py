@@ -730,7 +730,10 @@ class WorldMap():
         spec = obj.spec
         #print(f"left={spec['originx']*AIVISION_RESOLUTION_SCALE}  {max_left=}  " + \
         #      f"right={(spec['originx'] + spec['width']) * AIVISION_RESOLUTION_SCALE} {min_right=}")
-        if spec['originx']*AIVISION_RESOLUTION_SCALE < max_left and \
+        #
+        # never seen objects acquired from map layout won't have originx
+        if 'originx' in spec and \
+           spec['originx']*AIVISION_RESOLUTION_SCALE < max_left and \
            (spec['originx'] + spec['width']) * AIVISION_RESOLUTION_SCALE > min_right:
             return True
         else:
