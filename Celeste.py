@@ -149,21 +149,22 @@ class Celeste(StateMachineProgram):
 
     def __init__(self):
         # ---- TTS Source selection --------------------------------------
-        # Pick ONE engine below. Fallback is always gTTS if the chosen engine fails or its key is missing.'
+        # Pick ONE engine below. 
+        # Fallback is gTTS if the chosen engine fails or its key is missing.
         # Keys come from the local .env file.
         #
         #   Google (default):
         #     speech_api=None,  speech_voice='en-US-Journey-F',
         #     speech_params={'language_code': 'en-US'}
         #
-        #   ElevenLabs (needs ELEVENLABS_API_KEY):
-        #     speech_api='elevenlabs',  speech_voice='<voice_id>',
+        #   ElevenLabs (using ELEVENLABS_API_KEY):
+        #     speech_api='elevenlabs',  speech_voice='<yowh82B72eMNrxcxHgBh>',
         #     speech_params={'model_id': 'eleven_v3',        # or eleven_multilingual_v2 / eleven_turbo_v2_5
         #                    'output_format': 'mp3_44100_128',
         #                    'voice_settings': {'stability': 0.5, 'similarity_boost': 0.75}}
         #
-        #   OpenAI (needs OPENAI_API_KEY):
-        #     speech_api='openai',  speech_voice='alloy',      # alloy/echo/fable/onyx/nova/shimmer/...
+        #   OpenAI (using OPENAI_API_KEY):
+        #     speech_api='openai',  speech_voice='alloy',      # alloy/echo/fable/onyx/nova/shimmer
         #     speech_params={'model': 'gpt-4o-mini-tts'}
         # --------------------------------------------------------------------
         super().__init__(launch_cam_viewer=True,
