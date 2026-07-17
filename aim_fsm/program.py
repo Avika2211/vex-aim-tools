@@ -47,6 +47,9 @@ class StateMachineProgram(StateNode):
                  annotated_image_callback: Optional[Callable[[Any, dict], None]] = None,
                  viewer_crosshairs = False,  # set to True to draw viewer crosshairs
                  speech = True,
+                 speech_api = None,          # None/'google' -> Google Cloud TTS; 'elevenlabs'; 'openai'
+                 speech_voice = None,        # provider voice id (e.g. ElevenLabs voice_id)
+                 speech_params = None,       # dict of extra provider params (e.g. {'model_id': ...})
                  particle_filter = None,
                  num_particles = 500,
                  landmarks = dict(),
@@ -85,6 +88,9 @@ class StateMachineProgram(StateNode):
         self.annotated_image_callback = annotated_image_callback
         self.viewer_crosshairs = viewer_crosshairs
         self.speech = speech
+        self.speech_api = speech_api
+        self.speech_voice = speech_voice
+        self.speech_params = speech_params or dict()
         self.launch_particle_viewer = launch_particle_viewer
         self.particle_viewer_scale = particle_viewer_scale
         self.launch_path_viewer = launch_path_viewer
