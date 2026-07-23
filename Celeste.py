@@ -159,7 +159,7 @@ class Celeste(StateMachineProgram):
         #
         #   ElevenLabs (using ELEVENLABS_API_KEY):
         #     speech_api='elevenlabs',  speech_voice='yowh82B72eMNrxcxHgBh',
-        #     speech_params={'model_id': 'eleven_v3',        # or eleven_multilingual_v2 / eleven_turbo_v2_5
+        #     speech_params={'model_id': 'eleven_multilingual_v2',        # eleven_multilingual_v2 / eleven_turbo_v2_5; eleven_v3 might not support some voices
         #                    'output_format': 'mp3_44100_128',
         #                    'voice_settings': {'stability': 0.5, 'similarity_boost': 0.75}}
         #
@@ -171,9 +171,11 @@ class Celeste(StateMachineProgram):
                          launch_worldmap_viewer=True,
                          launch_particle_viewer=True,
                          launch_path_viewer=True,
-                         speech_api= None, # TTS Source selection
-                         speech_voice='en-US-Journey-F', # TTS Source selection; left as None if not using ElevenLabs
-                         speech_params={'language_code': 'en-US'}) # TTS Source selection
+                         speech_api= 'elevenlabs', # TTS Source selection
+                         speech_voice='yowh82B72eMNrxcxHgBh', # TTS Source selection; left as None if not using ElevenLabs
+                         speech_params={'model_id': 'eleven_multilingual_v2',
+                           'output_format': 'mp3_44100_128',
+                           'voice_settings': {'stability': 0.5, 'similarity_boost': 0.75}}) # TTS Source selection
 
     def picked_up_celeste(self):
         self.robot.gpt_note_for_later("You have been picked up.")

@@ -39,7 +39,7 @@ AVAILABLE_MODELS = [
 MODEL_ID = "eleven_multilingual_v2"
 
 # Default voice + text (override on the CLI with --voice / --text).
-DEFAULT_VOICE_ID = "yowh82B72eMNrxcxHgBh"
+DEFAULT_VOICE_ID = "yowh82B72eMNrxcxHgBh" # Lorenzo Prada - refined Italian accent
 DEFAULT_TEXT = "Hello, this is a test of the ElevenLabs API key."
 DEFAULT_OUTPUT_FORMAT = "mp3_44100_128"
 
