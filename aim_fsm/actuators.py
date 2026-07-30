@@ -239,7 +239,7 @@ class DriveActuator(Actuator):
 
 class SoundActuator(Actuator):
     # ---- Text-to-speech selection ------------------------------------------
-    # Edit the three TTS_* settings below to choose a provider.
+    # Edit TTS_API, TTS_VOICE, and TTS_PARAMS below to choose a provider.
     # If the selected provider fails or its API key is missing, speech falls back to gTTS.
     #
     # Google Cloud TTS (uses GOOGLE_APPLICATION_CREDENTIALS):
@@ -276,7 +276,7 @@ class SoundActuator(Actuator):
         self.playing = False
         self.unpause_handle = None
         self.tts_client = None
-        # ElevenLabs setup: key comes from the environment, never hardcoded.
+        # ElevenLabs setup: put key into the environment.
         # The SDK client is created lazily on first use.
         self.eleven_api_key = os.getenv('ELEVENLABS_API_KEY')
         self.eleven_client = None
@@ -284,7 +284,7 @@ class SoundActuator(Actuator):
         try:
             creds = getattr(google.cloud, 'api_credentials', None)
             google_env = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-            # If no credentials, will look in GOOGLE_APPLICATION_CREDENTIALS environment var
+            # If no credentials, will look in GOOGLE_APPLICATION_CREDENTIALS environment var.
             if creds or google_env:
                 self.tts_client = texttospeech.TextToSpeechClient(credentials = creds)
             self.tts_voice = texttospeech.VoiceSelectionParams(
@@ -349,14 +349,14 @@ class SoundActuator(Actuator):
             return
 
     def get_tts_config(self):
-        """Return the provider settings configured on SoundActuator."""
+        """Return the provider settings (api, voice, params) configured on this SoundActuator."""
         return self.TTS_API, self.TTS_VOICE, dict(self.TTS_PARAMS)
 
     def synthesize_to_file(self, text, speech_file_path):
         """Dispatch synthesis to the configured provider, with a gTTS safety net."""
         api, voice, params = self.get_tts_config()
         if api not in (None, 'google', 'elevenlabs', 'openai'):
-            print(f'*** Unknown speech_api {api!r}; using default Google/gTTS.')
+            print(f'*** Unknown TTS_API {api!r}; using default Google/gTTS.')
             api = None
         try:
             if api == 'elevenlabs':
@@ -373,7 +373,11 @@ class SoundActuator(Actuator):
         except Exception as e:
             print(f'*** TTS provider ({api or "google"}) failed: {e}. Falling back to gTTS.')
         # Fallback synthesizer (also the normal path when no Google credentials).
-        gTTS(text=text, lang='en').save(speech_file_path)
+        try:
+            gTTS(text=text, lang='en').save(speech_file_path)
+        except Exception as e:
+            print(f'*** gTTS fallback failed: {e}')
+            raise
 
     def synthesize_google(self, text, speech_file_path, voice=None, params=None):
         params = params or dict()
@@ -397,11 +401,11 @@ class SoundActuator(Actuator):
             raise RuntimeError('No ELEVENLABS_API_KEY set in the environment')
         voice_id = voice or params.get('voice_id')
         if not voice_id:
-            raise RuntimeError('No ElevenLabs voice id specified (speech_voice)')
+            raise RuntimeError('No ElevenLabs voice id specified (TTS_VOICE)')
         if self.eleven_client is None:
             from elevenlabs.client import ElevenLabs
             self.eleven_client = ElevenLabs(api_key=self.eleven_api_key)
-        model_id = params.get('model_id', 'eleven_v3')
+        model_id = params.get('model_id', 'eleven_multilingual_v2')
         output_format = params.get('output_format', 'mp3_44100_128')
         convert_kwargs = dict(
             text=text,
