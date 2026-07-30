@@ -276,7 +276,7 @@ class SoundActuator(Actuator):
         self.playing = False
         self.unpause_handle = None
         self.tts_client = None
-        # ElevenLabs setup: put key into the environment.
+        # ElevenLabs setup: read its key from the environment var.
         # The SDK client is created lazily on first use.
         self.eleven_api_key = os.getenv('ELEVENLABS_API_KEY')
         self.eleven_client = None
