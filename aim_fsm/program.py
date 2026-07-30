@@ -47,7 +47,7 @@ class StateMachineProgram(StateNode):
                  annotated_image_callback: Optional[Callable[[Any, dict], None]] = None,
                  viewer_crosshairs = False,  # set to True to draw viewer crosshairs
                  speech = True,
-                 openai_model = None,        # set to 'gpt-5.6-sol' or other model nameto override the client default
+                 openai_model = None,        # set to 'gpt-5.6-sol' or other model name to override the client default
                  particle_filter = None,
                  num_particles = 500,
                  landmarks = dict(),
