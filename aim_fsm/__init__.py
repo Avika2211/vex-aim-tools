@@ -1,6 +1,3 @@
-from .dotenv import load_dotenv
-load_dotenv()  # load API keys from a local .env before anything reads os.environ
-
 from . import base
 from . import program
 base.program = program
