@@ -3,3 +3,7 @@
 notes.txt
 snapshots
 *.py.old
+
+
+# Ignore macOS Finder metadata files, which are not useful to Git.
+.DS_Store 
