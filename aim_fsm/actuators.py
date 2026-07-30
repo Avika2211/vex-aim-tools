@@ -238,6 +238,38 @@ class DriveActuator(Actuator):
 
 
 class SoundActuator(Actuator):
+    # ---- Text-to-speech selection ------------------------------------------
+    # Edit the three TTS_* settings below to choose a provider.
+    # If the selected provider fails or its API key is missing, speech falls back to gTTS.
+    #
+    # Google Cloud TTS (uses GOOGLE_APPLICATION_CREDENTIALS):
+    #   TTS_API = 'google'
+    #   TTS_VOICE = 'en-US-Journey-F'
+    #   TTS_PARAMS = {'language_code': 'en-US'}
+    #
+    # ElevenLabs (uses ELEVENLABS_API_KEY):
+    #   TTS_API = 'elevenlabs'
+    #   TTS_VOICE = 'yowh82B72eMNrxcxHgBh' # Lorenzo Prada - Refined Italian accent 
+    #   TTS_PARAMS = {
+    #       'model_id': 'eleven_multilingual_v2',
+    #       'output_format': 'mp3_44100_128',
+    #       'voice_settings': {
+    #           'stability': 0.5,
+    #           'similarity_boost': 0.75,
+    #       },
+    #   }
+    #
+    # OpenAI (uses OPENAI_API_KEY):
+    #   TTS_API = 'openai'
+    #   TTS_VOICE = 'alloy'   # alloy/echo/fable/onyx/nova/shimmer
+    #   TTS_PARAMS = {'model': 'gpt-4o-mini-tts'}
+    #
+    # Active selection:
+    TTS_API = 'google'
+    TTS_VOICE = 'en-US-Journey-F'
+    TTS_PARAMS = {'language_code': 'en-US'}
+    # ------------------------------------------------------------------------
+
     def __init__(self, robot):
         super().__init__(robot, 'sound')
         self.use_gcloud = True
@@ -317,17 +349,8 @@ class SoundActuator(Actuator):
             return
 
     def get_tts_config(self):
-        """Read the TTS selection declared on the running StateMachineProgram.
-
-        Returns (api, voice, params) where api is None/'google'/'elevenlabs'/'openai'.
-        A missing program or missing attributes fall back to the Google default.
-        """
-        from . import program
-        fsm = getattr(program, 'running_fsm', None)
-        api = getattr(fsm, 'speech_api', None)
-        voice = getattr(fsm, 'speech_voice', None)
-        params = getattr(fsm, 'speech_params', None) or dict()
-        return api, voice, params
+        """Return the provider settings configured on SoundActuator."""
+        return self.TTS_API, self.TTS_VOICE, dict(self.TTS_PARAMS)
 
     def synthesize_to_file(self, text, speech_file_path):
         """Dispatch synthesis to the configured provider, with a gTTS safety net."""
