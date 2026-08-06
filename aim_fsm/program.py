@@ -47,6 +47,7 @@ class StateMachineProgram(StateNode):
                  annotated_image_callback: Optional[Callable[[Any, dict], None]] = None,
                  viewer_crosshairs = False,  # set to True to draw viewer crosshairs
                  speech = True,
+                 openai_model = None,        # set to 'gpt-5.6-sol' or other model name to override the client default
                  particle_filter = None,
                  num_particles = 500,
                  landmarks = dict(),
@@ -68,6 +69,9 @@ class StateMachineProgram(StateNode):
         self.parent = None
         self.robot.robot0.set_xy_position(0,0)
         self.robot.robot0.inertial.set_heading(0)
+        if openai_model is not None:
+            self.robot.openai_client.model = openai_model
+        # print(f'OpenAI model: {self.robot.openai_client.model}')  # if wish to show the model in use
 
         if not hasattr(self.robot, 'erouter'):
             self.robot.erouter = EventRouter()
