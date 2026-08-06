@@ -10,3 +10,4 @@ pyreadline3
 openai
 gTTS
 google-cloud-texttospeech
+elevenlabs
