@@ -169,11 +169,15 @@ class CircularKalmanFilter:
 
 
 class Pose():
-    def __init__(self, x=0, y=0, z=0, theta=None, origin_id=-1):
+    def __init__(self, x=0, y=0, z=0, theta=None, quaternion = None, origin_id=-1):
         self.x = x
         self.y = y
         self.z = z
         self.theta = theta
+        if quaternion is not None:
+            self.quaternion = quaternion
+        elif theta is not None:
+            self.quaternion = Quaternion(angle_z = theta)
         self.origin_id = origin_id
 
     def __repr__(self):
@@ -192,14 +196,15 @@ class Pose():
     
 
 class PoseEstimate(Pose):
-    def __init__(self, x=0, y=0, z=0, theta=None):
+    def __init__(self, x=0, y=0, z=0, theta=None, quaternion=None):
         if isinstance(x, Pose):
             p = x
             x = p.x
             y = p.y
             z = p.z
             theta = p.theta
-        super().__init__(x, y, z, theta)
+            quaternion = p.quaternion
+        super().__init__(x, y, z, theta, quaternion)
         initial_uncertainty = 200
         process_noise = 0.01
         base_measurement_noise = 0.1
