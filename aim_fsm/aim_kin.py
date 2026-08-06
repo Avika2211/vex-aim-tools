@@ -22,7 +22,7 @@ camera_tilt = 23.7 # degrees downward (measured for AIM-32A57C18)
 # ================================================================
 
 class AIMKinematics(Kinematics):
-    body_diameter = 57 # mm
+    body_diameter = 60 # mm
     wheel_diameter = 24 # mm
     wheel_distance = 25 # mm from center
     robot_height = 72 # mm
