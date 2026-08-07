@@ -1,7 +1,7 @@
 import numpy as np
 from math import pi, nan
 
-from .geometry import wrap_angle
+from .geometry import wrap_angle, Quaternion
 
 class LinearKalmanFilter:
     def __init__(self, initial_state, initial_uncertainty, process_noise, measurement_noise):
