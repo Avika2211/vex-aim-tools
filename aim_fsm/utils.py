@@ -178,6 +178,8 @@ class Pose():
             self.quaternion = quaternion
         elif theta is not None:
             self.quaternion = Quaternion(angle_z = theta)
+        else:
+            self.quaternion = Quaternion(angle_z = 0)
         self.origin_id = origin_id
 
     def __repr__(self):
