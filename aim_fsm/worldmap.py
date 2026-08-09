@@ -725,8 +725,8 @@ class WorldMap():
             max_left = 150
             min_right = 460
         else:
-            max_left = 120
-            min_right = 480
+            max_left = 200
+            min_right = 470
         spec = obj.spec
         #print(f"left={spec['originx']*AIVISION_RESOLUTION_SCALE}  {max_left=}  " + \
         #      f"right={(spec['originx'] + spec['width']) * AIVISION_RESOLUTION_SCALE} {min_right=}")
@@ -797,7 +797,7 @@ class WorldMap():
                     if obj.is_visible:
                         vis = "visible"
                     else:
-                        vis = "not vislbie"
+                        vis = "not visible"
                     prompt += f'{id} is located at ({round(obj.pose.x)}, {round(obj.pose.y)}) ' + \
                         f'and is {vis}\n'
                 else:
