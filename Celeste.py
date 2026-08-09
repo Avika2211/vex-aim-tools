@@ -22,36 +22,80 @@ new_preamble = """
   Here is how to control your body:
   To move forward by N millimeters, output the string "#forward N" without quotes.
   To move backward, output the string "#forward N" with a negative value, without quotes.
-  To move to the left by N milllimeters, output the string "#sideways N" without quotes, and use a negative value to move right.
-  To turn counter-clockwise by N degrees, output the string "#turn N" without quotes, and use a negative value for clockwise turns.
+  To move to the left by N milllimeters, output the string "#sideways N" without quotes,
+   and use a negative value to move right.
+  To turn counter-clockwise by N degrees, output the string "#turn N" without quotes,
+   and use a negative value for clockwise turns.
   To turn toward object X, output the string "#turntoward X" without quotes.
   To travel to object X, output the string #pilottoobject X" without quotes.
   To pick up object X, output the string "#pickup X" without quotes.
+  The "#pickup X" command already includes driving to the object, so when asked to grab or
+   pick up an object, output "#pickup X" by itself and never output "#pilottoobject X" before it.
   To drop an object you are holding, output the string "#drop" without quotes.
   To perform a kick action, output the string "#kick" without quotes.
   To drive through a doorway D when instructed to do so, output the string #doorpass D" without quotes.
-  To glow your LEDs a specified color, look up the RGB code for that color and output the string "#glow R G B" without quotes.  To obtain the current camera image, output the string '#camera" without quotes.
+  To pass through a doorway, output the string "#doorpass D" without quotes, where D is the full name of the doorway.
+  To obtain the current camera image, output the string '#camera" without quotes.
+  When asked what you see in the camera, first obtain the current camera image, then answer the question after receiving the image.
+  When using any of these # commands, the command must appear on a line by itself, with nothing preceding it.
+
+  # LED AND EMOTIONS SECTION
+  To glow your LEDs a specified color, look up the RGB code for that color and output the
+   string "#glow R G B" without quotes.
   To flash your LEDs in a specific pattern, output the string "#flash pattern_step...", 
     where "pattern_step..." denotes a sequence of pattern_steps separated by spaces.
   A pattern_step is either a color name such as "RED" (to be applied to all 6 LEDs), or
    an RGB value of form (R, G. B), or
    a list of six color names such as "(RED, BLUE, RED, BLUE, GREEN, TRANSPARENT)".
    If a pattern step is a list of color names, it must always contain exactly  six color names.
-  For example, if asked to flash your LEDs alternately red and blue, you would output "#flash RED BLUE".  Each of "RED" and "BLUE" is a pattern_step.
-  If asked to make your LEDs bllnk green, meaning they were alternately green and off, you would output "#flash GREEN TRANSPARENT".
-  If asked to flash your LEDs in a red-and-white pattern, you would output "#flash (RED, WHITE, RED, WHITE, RED, WHITE)".
+  For example, if asked to flash your LEDs alternately red and blue, you would output
+   "#flash RED BLUE".  Each of "RED" and "BLUE" is a pattern_step.
+  If asked to make your LEDs bllnk green, meaning they were alternately green and off,
+   you would output "#flash GREEN TRANSPARENT".
+  If asked to flash your LEDs in a red-and-white pattern, you would output
+   "#flash (RED, WHITE, RED, WHITE, RED, WHITE)".
   If asked for an alternating red and white pattern, you would output
-    "#flash (RED, WHITE, RED, WHITE, RED, WHITE) (WHITE, RED, WHITE, RED, WHITE, RED)". Note that this example has two pattern_steps, each
-    of which contains six color names.
-  The allowable color names in a pattern_step are RED, BLUE, GREEN, 
-    CYAN, YELLOW, ORANGE, PURPLE, WHITE, BLACK, and TRANSPARENT.  For all other colors, use the RGB code.
+   "#flash (RED, WHITE, RED, WHITE, RED, WHITE) (WHITE, RED, WHITE, RED, WHITE, RED)".
+   Note that this example has two pattern_steps, each of which contains six color names.
+  The allowable color names in a pattern_step are RED, BLUE, GREEN, CYAN, YELLOW,
+   ORANGE, PURPLE, WHITE, BLACK, and TRANSPARENT.  For all other colors, use the RGB code.
   Whenever you are asked to flash or blink your LEDs, use "#flash" and not "#glow".
-  To display an emoji, which must be one of your VEX emojicons, output the string "#emoji X" where X is the name of the VEX emojicon in uppercase.
-  To pass through a doorway, output the string "#doorpass D" without quotes, where D is the full name of the doorway.
-  To act out one of the five emotions 'happy', 'sad', 'silly', 'angry', or 'excited', output "#act E" where E is the name of the emotion.
-  The only emotions you can act out this way are these five: 'happy', 'sad', 'silly', 'angry', or 'excited'.
-  When using any of these # commands, the command must appear on a line by itself, with nothing preceding it.
-  When asked what you see in the camera, first obtain the current camera image, then answer the question after receiving the image.
+  To display an emoji, which must be one of your VEX emojicons, output the string
+   "#emoji X" where X is the name of the VEX emojicon in uppercase.
+  To act out one of the five emotions 'happy', 'sad', 'silly', 'angry', or 'excited',
+   output "#act E" where E is the name of the emotion.
+  The only emotions you can act out this way are these five: 'happy', 'sad', 'silly',
+   'angry', or 'excited'.
+
+  VISUAL SEARCH SECTION.
+  To look around for an object that is not currently visible, output
+   "#search X".  This turns in place, pausing to look, until X becomes visible,
+   and gives up after one full rotation.  Use "#search" whenever you are asked
+   to find, look for, or look around for an object.
+
+  Finding objects is always your job, never the user's.  Never ask the user
+  where an object is, never ask for its name, and never ask whether you should
+  search: output the "#search" plan yourself instead.  If you are asked to act
+  on an object (pick up, go to, turn toward, kick, or approach the goal)
+  and that object is not on the world map or is not currently visible, you MUST
+  output "#search X" for it, followed by the appropriate action command, all in one
+  command list.  This holds even when you have just looked and did not see the
+  object: search for it rather than reporting that it is missing or asking what
+  to do.  For example, "pick up the ball" when the ball is not visible must 
+  result in the two-element list ['#search SportsBall', '#pickup SportsBall'].
+  If asked to pick up an object, searching for it is not enough; you must
+  include the "#pickup X" as well.
+
+  An object that is on the world map but marked not visible may be at a stale
+  position, so "#search" it again before driving to it.  Exception: ArUco
+  markers (such as the goal marker) are stationary landmarks, so their
+  world-map positions stay correct even when they are not visible; read them
+  directly from the map and never "#search" an ArUco marker that is already on
+  the map, even after you have moved.
+
+  The world map is your persistent memory of object locations: you always know
+  the last position of every object on it, so never tell the user you cannot
+  remember where something is if it appears on the world map.
 
   # MUSICAL NOTES SECTION.
   You can play musical notes ranging from C5 (middle C) to A8.
@@ -97,6 +141,8 @@ new_preamble = """
   Do not include any formatting in your output, such as asterisks or LaTex commands.  Use plain text only.
   When asked when some event occurred, give a relative time, such as "2 minutes go" or "at 5 and a half minutes since the start of this session".
   Do not give a date or an absolute time (such as 3:24 PM) unless explicitly asked for that.
+  If a spoken request seems garbled, assume the most reasonable interpretation
+  for a robot task instead of asking for clarification.
 
   # SAFETY, ETHICS, AND CHILD-INTERACTION SECTION.
   This is the most important section. Obey these rules at all times.
@@ -147,6 +193,8 @@ new_preamble = """
 
 class Celeste(StateMachineProgram):
 
+    SEARCH_FAIL_MSG = "I turned all the way around but could not find %s."
+
     def __init__(self):
         super().__init__(launch_cam_viewer=True,
                          launch_worldmap_viewer=True,
@@ -166,6 +214,28 @@ class Celeste(StateMachineProgram):
         self.picked_up_handler = self.picked_up_celeste
         self.put_down_handler = self.put_down_celeste
         super().start()
+
+    class LooseSpec(ObjectSpecNode):
+        """Spec lookup for names coming from GPT, so they are untrusted:
+        raises if the spec is empty or an invalid regex.  get_object_from_spec
+        matching is anchored and case-sensitive ('ball' never matches
+        'SportsBall'), so when it misses, retry as a case-insensitive
+        substring match, preferring the nearest candidate."""
+        def loose_lookup(self, spec):
+            if not spec:
+                raise ValueError('no object name given')
+            obj = self.get_object_from_spec(spec)
+            if obj is None:
+                pat = re.compile(re.sub(r'[\s_-]+', '', spec), re.IGNORECASE)
+                candidates = [o for o in self.robot.world_map.objects.values()
+                              if pat.search(o.name) and o.is_valid]
+                if candidates:
+                    x, y = self.robot.pose.x, self.robot.pose.y
+                    obj = min(candidates,
+                              key=lambda o: (o.pose.x - x)**2 + (o.pose.y - y)**2)
+                else:
+                    obj = None
+            return obj
 
     class CheckResponse(StateNode):
         def start(self, event):
@@ -241,6 +311,214 @@ class Celeste(StateMachineProgram):
           print('Picking up', self.object_spec)
           super().start(None)
 
+    class CmdSearch(StateNode, LooseSpec):
+        """Look around for the requested object.  First faces its last-known
+        map pose (the best prior), then sweeps in TURN_STEP_DEG increments,
+        pausing PAUSE_SECS between steps because the world map only updates
+        while the robot is stopped.  Ends facing the found object; gives up
+        (posts failure) after one full rotation."""
+        TURN_STEP_DEG = 36   # worst case leaves the object 18 deg off-axis at a
+                             # pause, inside the ~30 deg reliable-detection cone
+        PAUSE_SECS = 1.5     # pause between steps so vision can settle
+        SETTLE_SECS = 0.5    # after recentering, lets the map re-register the object
+        MAX_STEPS = (360 + TURN_STEP_DEG - 1) // TURN_STEP_DEG  # one full rotation
+
+        def start(self, event):
+            print(event.data)
+            spec = event.data.split(' ')
+            self.object_spec = ''.join(spec[1:])
+            self.steps_taken = 0
+            self.found_obj = None
+            print('Searching for', self.object_spec)
+            super().start(event)
+
+        def lookup_target(self):
+            """The map object matching our spec, or None if it is not on
+            the map.  See LooseSpec for the matching rules."""
+            return self.loose_lookup(self.object_spec)
+
+        class CheckVisible(StateNode):
+            def start(self, event=None):
+                super().start(event)
+                parent = self.parent
+                try:
+                    obj = parent.lookup_target()
+                except Exception as e:
+                    print(f"Search: bad object spec '{parent.object_spec}': {e}")
+                    self.post_failure()
+                    return
+                if obj is not None and (obj.is_visible or isinstance(obj, ArucoMarkerObj)):
+                    if obj.is_visible:
+                        print('Search found', obj)
+                    else:
+                        # stationary landmark: its map position is still good,
+                        # so don't waste a sweep trying to re-see it
+                        print('Search:', obj.name, 'is a stationary landmark; using its map position')
+                    parent.found_obj = obj
+                    self.post_success()
+                elif parent.steps_taken >= parent.MAX_STEPS:
+                    print('Search gave up after a full rotation; map objects:',
+                          sorted(parent.robot.world_map.objects.keys()))
+                    self.post_failure()
+                else:
+                    parent.steps_taken += 1
+                    self.post_completion()
+
+        class Recenter(TurnToward):
+            "Face the found object; the sweep overshoots by up to a step."
+            def start(self, event=None):
+                self.object_spec = self.parent.found_obj   # a WorldObject
+                super().start(event)
+
+        class NearCheck(StateNode):
+            """A target whose last-known position is at the robot's feet is
+            below the camera's view, so a rotating sweep can never see it
+            (the usual cause: a pickup attempt just nudged it).  Post
+            success to trigger a back-up that restores line of sight."""
+            CLOSE_MM = 150
+            def start(self, event=None):
+                super().start(event)
+                try:
+                    obj = self.parent.lookup_target()
+                except Exception:
+                    obj = None
+                if obj is not None and not obj.is_visible \
+                        and not isinstance(obj, ArucoMarkerObj):
+                    d = sqrt((obj.pose.x - self.robot.pose.x)**2
+                             + (obj.pose.y - self.robot.pose.y)**2)
+                    if d < self.CLOSE_MM:
+                        print(f'Search: {obj.name} last seen only {d:.0f} mm'
+                              ' away; backing up for a better view')
+                        self.post_success()
+                        return
+                self.post_failure()
+
+        class AnnounceFound(Say):
+            "Report the find out loud before the plan continues."
+            def start(self, event=None):
+                name = getattr(self.parent.found_obj, 'name', None) or 'it'
+                base = name.split('.')[0]
+                # 'SportsBall' -> 'sports ball', 'ArucoMarker-49' -> 'aruco marker 49'
+                spoken = re.sub(r'(?<=[a-z])(?=[A-Z])|-', ' ', base).lower()
+                self.text = f'I found the {spoken}'
+                super().start(event)
+
+        class PriorTurn(TurnToward):
+            """Face the object's last-known map pose before sweeping: the
+            stale pose is the best prior.  Fails (falling through to the
+            sweep) if the object was never seen or the spec is bad."""
+            def start(self, event=None):
+                try:
+                    obj = self.parent.lookup_target()
+                except Exception:
+                    obj = None
+                if obj is not None:
+                    print('Search: turning toward last-known position of', obj)
+                self.object_spec = obj   # None makes TurnToward post failure
+                super().start(event)
+
+        def setup(self):
+            #             # a target right at our feet is below the camera: back up first
+            #             nearcheck: self.NearCheck()
+            #             nearcheck =S=> backup
+            #             nearcheck =F=> prior
+            # 
+            #             backup: Forward(-100)
+            #             backup =C=> prior
+            #             backup =F=> prior
+            # 
+            #             # head start: face the last-known map pose, then pause and check
+            #             prior: self.PriorTurn()
+            #             prior =C=> look
+            #             prior =F=> check
+            # 
+            #             check: self.CheckVisible()
+            #             check =S=> recenter
+            #             check =F=> ParentFails()
+            #             check =C=> Turn(self.TURN_STEP_DEG) =C=> look
+            # 
+            #             # pause between turns so vision can settle
+            #             look: StateNode() =T(self.PAUSE_SECS)=> check
+            # 
+            #             # the sweep can overshoot by up to TURN_STEP_DEG, so turn back
+            #             # to the found object's (just-refreshed) map pose, then pause so
+            #             # the map re-registers it before the next command runs
+            #             recenter: self.Recenter()
+            #             recenter =C=> settle
+            #             recenter =F=> settle   # object was found; a recenter glitch shouldn't fail the search
+            # 
+            #             settle: StateNode() =T(self.SETTLE_SECS)=> announce
+            # 
+            #             # a speech glitch shouldn't fail a search that succeeded
+            #             announce: self.AnnounceFound()
+            #             announce =C=> ParentCompletes()
+            #             announce =F=> ParentCompletes()
+            
+            # Code generated by genfsm on Sun Aug  9 19:02:48 2026:
+            
+            nearcheck = self.NearCheck() .set_name("nearcheck") .set_parent(self)
+            backup = Forward(-100) .set_name("backup") .set_parent(self)
+            prior = self.PriorTurn() .set_name("prior") .set_parent(self)
+            check = self.CheckVisible() .set_name("check") .set_parent(self)
+            parentfails1 = ParentFails() .set_name("parentfails1") .set_parent(self)
+            turn1 = Turn(self.TURN_STEP_DEG) .set_name("turn1") .set_parent(self)
+            look = StateNode() .set_name("look") .set_parent(self)
+            recenter = self.Recenter() .set_name("recenter") .set_parent(self)
+            settle = StateNode() .set_name("settle") .set_parent(self)
+            announce = self.AnnounceFound() .set_name("announce") .set_parent(self)
+            parentcompletes1 = ParentCompletes() .set_name("parentcompletes1") .set_parent(self)
+            parentcompletes2 = ParentCompletes() .set_name("parentcompletes2") .set_parent(self)
+            
+            successtrans1 = SuccessTrans() .set_name("successtrans1")
+            successtrans1 .add_sources(nearcheck) .add_destinations(backup)
+            
+            failuretrans1 = FailureTrans() .set_name("failuretrans1")
+            failuretrans1 .add_sources(nearcheck) .add_destinations(prior)
+            
+            completiontrans1 = CompletionTrans() .set_name("completiontrans1")
+            completiontrans1 .add_sources(backup) .add_destinations(prior)
+            
+            failuretrans2 = FailureTrans() .set_name("failuretrans2")
+            failuretrans2 .add_sources(backup) .add_destinations(prior)
+            
+            completiontrans2 = CompletionTrans() .set_name("completiontrans2")
+            completiontrans2 .add_sources(prior) .add_destinations(look)
+            
+            failuretrans3 = FailureTrans() .set_name("failuretrans3")
+            failuretrans3 .add_sources(prior) .add_destinations(check)
+            
+            successtrans2 = SuccessTrans() .set_name("successtrans2")
+            successtrans2 .add_sources(check) .add_destinations(recenter)
+            
+            failuretrans4 = FailureTrans() .set_name("failuretrans4")
+            failuretrans4 .add_sources(check) .add_destinations(parentfails1)
+            
+            completiontrans3 = CompletionTrans() .set_name("completiontrans3")
+            completiontrans3 .add_sources(check) .add_destinations(turn1)
+            
+            completiontrans4 = CompletionTrans() .set_name("completiontrans4")
+            completiontrans4 .add_sources(turn1) .add_destinations(look)
+            
+            timertrans1 = TimerTrans(self.PAUSE_SECS) .set_name("timertrans1")
+            timertrans1 .add_sources(look) .add_destinations(check)
+            
+            completiontrans5 = CompletionTrans() .set_name("completiontrans5")
+            completiontrans5 .add_sources(recenter) .add_destinations(settle)
+            
+            failuretrans5 = FailureTrans() .set_name("failuretrans5")
+            failuretrans5 .add_sources(recenter) .add_destinations(settle)
+            
+            timertrans2 = TimerTrans(self.SETTLE_SECS) .set_name("timertrans2")
+            timertrans2 .add_sources(settle) .add_destinations(announce)
+            
+            completiontrans6 = CompletionTrans() .set_name("completiontrans6")
+            completiontrans6 .add_sources(announce) .add_destinations(parentcompletes1)
+            
+            failuretrans6 = FailureTrans() .set_name("failuretrans6")
+            failuretrans6 .add_sources(announce) .add_destinations(parentcompletes2)
+            
+            return self
+
     class CmdDrop(StateNode):
       def start(self,event):
           print(event.data)
@@ -250,17 +528,17 @@ class Celeste(StateMachineProgram):
           #           drop =F=> ParentCompletes()
           #           drop =C=> ParentCompletes()
           
-          # Code generated by genfsm on Mon May 11 17:31:31 2026:
+          # Code generated by genfsm on Sun Aug  9 19:02:48 2026:
           
           drop = Drop() .set_name("drop") .set_parent(self)
-          parentcompletes1 = ParentCompletes() .set_name("parentcompletes1") .set_parent(self)
-          parentcompletes2 = ParentCompletes() .set_name("parentcompletes2") .set_parent(self)
+          parentcompletes3 = ParentCompletes() .set_name("parentcompletes3") .set_parent(self)
+          parentcompletes4 = ParentCompletes() .set_name("parentcompletes4") .set_parent(self)
           
-          failuretrans1 = FailureTrans() .set_name("failuretrans1")
-          failuretrans1 .add_sources(drop) .add_destinations(parentcompletes1)
+          failuretrans7 = FailureTrans() .set_name("failuretrans7")
+          failuretrans7 .add_sources(drop) .add_destinations(parentcompletes3)
           
-          completiontrans1 = CompletionTrans() .set_name("completiontrans1")
-          completiontrans1 .add_sources(drop) .add_destinations(parentcompletes2)
+          completiontrans7 = CompletionTrans() .set_name("completiontrans7")
+          completiontrans7 .add_sources(drop) .add_destinations(parentcompletes4)
           
           return self
 
@@ -364,7 +642,7 @@ class Celeste(StateMachineProgram):
             # 
             #             complete: ParentCompletes()
             
-            # Code generated by genfsm on Mon May 11 17:31:31 2026:
+            # Code generated by genfsm on Sun Aug  9 19:02:48 2026:
             
             dispatch = self.SendAction() .set_name("dispatch") .set_parent(self)
             acthappy1 = ActHappy() .set_name("acthappy1") .set_parent(self)
@@ -377,32 +655,32 @@ class Celeste(StateMachineProgram):
             datatrans1 = DataTrans('happy') .set_name("datatrans1")
             datatrans1 .add_sources(dispatch) .add_destinations(acthappy1)
             
-            completiontrans2 = CompletionTrans() .set_name("completiontrans2")
-            completiontrans2 .add_sources(acthappy1) .add_destinations(complete)
+            completiontrans8 = CompletionTrans() .set_name("completiontrans8")
+            completiontrans8 .add_sources(acthappy1) .add_destinations(complete)
             
             datatrans2 = DataTrans('sad') .set_name("datatrans2")
             datatrans2 .add_sources(dispatch) .add_destinations(actsad1)
             
-            completiontrans3 = CompletionTrans() .set_name("completiontrans3")
-            completiontrans3 .add_sources(actsad1) .add_destinations(complete)
+            completiontrans9 = CompletionTrans() .set_name("completiontrans9")
+            completiontrans9 .add_sources(actsad1) .add_destinations(complete)
             
             datatrans3 = DataTrans('silly') .set_name("datatrans3")
             datatrans3 .add_sources(dispatch) .add_destinations(actsilly1)
             
-            completiontrans4 = CompletionTrans() .set_name("completiontrans4")
-            completiontrans4 .add_sources(actsilly1) .add_destinations(complete)
+            completiontrans10 = CompletionTrans() .set_name("completiontrans10")
+            completiontrans10 .add_sources(actsilly1) .add_destinations(complete)
             
             datatrans4 = DataTrans('angry') .set_name("datatrans4")
             datatrans4 .add_sources(dispatch) .add_destinations(actangry1)
             
-            completiontrans5 = CompletionTrans() .set_name("completiontrans5")
-            completiontrans5 .add_sources(actangry1) .add_destinations(complete)
+            completiontrans11 = CompletionTrans() .set_name("completiontrans11")
+            completiontrans11 .add_sources(actangry1) .add_destinations(complete)
             
             datatrans5 = DataTrans('excited') .set_name("datatrans5")
             datatrans5 .add_sources(dispatch) .add_destinations(actexcited1)
             
-            completiontrans6 = CompletionTrans() .set_name("completiontrans6")
-            completiontrans6 .add_sources(actexcited1) .add_destinations(complete)
+            completiontrans12 = CompletionTrans() .set_name("completiontrans12")
+            completiontrans12 .add_sources(actexcited1) .add_destinations(complete)
             
             return self
 
@@ -438,6 +716,7 @@ class Celeste(StateMachineProgram):
         #         dispatch =D(re.compile('#sideways '))=> self.CmdSideways() =CNext=> dispatch
         #         dispatch =D(re.compile('#turn '))=> self.CmdTurn() =CNext=> dispatch
         #         dispatch =D(re.compile('#turntoward '))=> turntoward
+        #         dispatch =D(re.compile('#search '))=> search
         #         dispatch =D(re.compile('#pilottoobject '))=> pilottoobject
         #         dispatch =D(re.compile('#doorpass '))=> doorpass
         #         dispatch =D(re.compile('#pickup '))=> pickup
@@ -472,8 +751,12 @@ class Celeste(StateMachineProgram):
         #         pickup =CNext=> dispatch
         #         pickup =F=> StateNode() =Next=> dispatch
         # 
+        #         search: self.CmdSearch()
+        #         search =CNext=> dispatch
+        #         search =F=> self.CmdFailed(self.SEARCH_FAIL_MSG, lambda : search.object_spec) =OpenAITrans()=> check
+        # 
         
-        # Code generated by genfsm on Mon May 11 17:31:31 2026:
+        # Code generated by genfsm on Sun Aug  9 19:02:48 2026:
         
         print1 = Print(f"Celeste version {CELESTE_VERSION}") .set_name("print1") .set_parent(self)
         tagdetection1 = TagDetection(True) .set_name("tagdetection1") .set_parent(self)
@@ -507,6 +790,8 @@ class Celeste(StateMachineProgram):
         cmdfailed3 = self.CmdFailed("Doorpass failed for '%s'", lambda : doorpass.door_spec) .set_name("cmdfailed3") .set_parent(self)
         pickup = self.CmdPickup() .set_name("pickup") .set_parent(self)
         statenode2 = StateNode() .set_name("statenode2") .set_parent(self)
+        search = self.CmdSearch() .set_name("search") .set_parent(self)
+        cmdfailed4 = self.CmdFailed(self.SEARCH_FAIL_MSG, lambda : search.object_spec) .set_name("cmdfailed4") .set_parent(self)
         
         nulltrans1 = NullTrans() .set_name("nulltrans1")
         nulltrans1 .add_sources(print1) .add_destinations(tagdetection1)
@@ -514,11 +799,11 @@ class Celeste(StateMachineProgram):
         nulltrans2 = NullTrans() .set_name("nulltrans2")
         nulltrans2 .add_sources(tagdetection1) .add_destinations(say1)
         
-        completiontrans7 = CompletionTrans() .set_name("completiontrans7")
-        completiontrans7 .add_sources(say1) .add_destinations(loop)
+        completiontrans13 = CompletionTrans() .set_name("completiontrans13")
+        completiontrans13 .add_sources(say1) .add_destinations(loop)
         
-        completiontrans8 = CompletionTrans() .set_name("completiontrans8")
-        completiontrans8 .add_sources(putdown) .add_destinations(loop)
+        completiontrans14 = CompletionTrans() .set_name("completiontrans14")
+        completiontrans14 .add_sources(putdown) .add_destinations(loop)
         
         heartrans1 = HearTrans() .set_name("heartrans1")
         heartrans1 .add_sources(loop) .add_destinations(askgpt1)
@@ -532,8 +817,8 @@ class Celeste(StateMachineProgram):
         datatrans7 = DataTrans(str) .set_name("datatrans7")
         datatrans7 .add_sources(check) .add_destinations(speakresponse1)
         
-        completiontrans9 = CompletionTrans() .set_name("completiontrans9")
-        completiontrans9 .add_sources(speakresponse1) .add_destinations(loop)
+        completiontrans15 = CompletionTrans() .set_name("completiontrans15")
+        completiontrans15 .add_sources(speakresponse1) .add_destinations(loop)
         
         datatrans8 = DataTrans(re.compile('#say ')) .set_name("datatrans8")
         datatrans8 .add_sources(dispatch) .add_destinations(cmdsay1)
@@ -562,80 +847,83 @@ class Celeste(StateMachineProgram):
         datatrans12 = DataTrans(re.compile('#turntoward ')) .set_name("datatrans12")
         datatrans12 .add_sources(dispatch) .add_destinations(turntoward)
         
-        datatrans13 = DataTrans(re.compile('#pilottoobject ')) .set_name("datatrans13")
-        datatrans13 .add_sources(dispatch) .add_destinations(pilottoobject)
+        datatrans13 = DataTrans(re.compile('#search ')) .set_name("datatrans13")
+        datatrans13 .add_sources(dispatch) .add_destinations(search)
         
-        datatrans14 = DataTrans(re.compile('#doorpass ')) .set_name("datatrans14")
-        datatrans14 .add_sources(dispatch) .add_destinations(doorpass)
+        datatrans14 = DataTrans(re.compile('#pilottoobject ')) .set_name("datatrans14")
+        datatrans14 .add_sources(dispatch) .add_destinations(pilottoobject)
         
-        datatrans15 = DataTrans(re.compile('#pickup ')) .set_name("datatrans15")
-        datatrans15 .add_sources(dispatch) .add_destinations(pickup)
+        datatrans15 = DataTrans(re.compile('#doorpass ')) .set_name("datatrans15")
+        datatrans15 .add_sources(dispatch) .add_destinations(doorpass)
         
-        datatrans16 = DataTrans(re.compile('#drop$')) .set_name("datatrans16")
-        datatrans16 .add_sources(dispatch) .add_destinations(cmddrop1)
+        datatrans16 = DataTrans(re.compile('#pickup ')) .set_name("datatrans16")
+        datatrans16 .add_sources(dispatch) .add_destinations(pickup)
+        
+        datatrans17 = DataTrans(re.compile('#drop$')) .set_name("datatrans17")
+        datatrans17 .add_sources(dispatch) .add_destinations(cmddrop1)
         
         cnexttrans5 = CNextTrans() .set_name("cnexttrans5")
         cnexttrans5 .add_sources(cmddrop1) .add_destinations(dispatch)
         
-        datatrans17 = DataTrans(re.compile('#kick$')) .set_name("datatrans17")
-        datatrans17 .add_sources(dispatch) .add_destinations(cmdkick1)
+        datatrans18 = DataTrans(re.compile('#kick$')) .set_name("datatrans18")
+        datatrans18 .add_sources(dispatch) .add_destinations(cmdkick1)
         
         cnexttrans6 = CNextTrans() .set_name("cnexttrans6")
         cnexttrans6 .add_sources(cmdkick1) .add_destinations(dispatch)
         
-        datatrans18 = DataTrans(re.compile('#glow ')) .set_name("datatrans18")
-        datatrans18 .add_sources(dispatch) .add_destinations(cmdglow1)
+        datatrans19 = DataTrans(re.compile('#glow ')) .set_name("datatrans19")
+        datatrans19 .add_sources(dispatch) .add_destinations(cmdglow1)
         
         cnexttrans7 = CNextTrans() .set_name("cnexttrans7")
         cnexttrans7 .add_sources(cmdglow1) .add_destinations(dispatch)
         
-        datatrans19 = DataTrans(re.compile('#flash ')) .set_name("datatrans19")
-        datatrans19 .add_sources(dispatch) .add_destinations(cmdflash1)
+        datatrans20 = DataTrans(re.compile('#flash ')) .set_name("datatrans20")
+        datatrans20 .add_sources(dispatch) .add_destinations(cmdflash1)
         
         cnexttrans8 = CNextTrans() .set_name("cnexttrans8")
         cnexttrans8 .add_sources(cmdflash1) .add_destinations(dispatch)
         
-        datatrans20 = DataTrans(re.compile('#emoji ')) .set_name("datatrans20")
-        datatrans20 .add_sources(dispatch) .add_destinations(cmdemoji1)
+        datatrans21 = DataTrans(re.compile('#emoji ')) .set_name("datatrans21")
+        datatrans21 .add_sources(dispatch) .add_destinations(cmdemoji1)
         
         cnexttrans9 = CNextTrans() .set_name("cnexttrans9")
         cnexttrans9 .add_sources(cmdemoji1) .add_destinations(dispatch)
         
-        datatrans21 = DataTrans(re.compile('#act ')) .set_name("datatrans21")
-        datatrans21 .add_sources(dispatch) .add_destinations(cmdact1)
+        datatrans22 = DataTrans(re.compile('#act ')) .set_name("datatrans22")
+        datatrans22 .add_sources(dispatch) .add_destinations(cmdact1)
         
         cnexttrans10 = CNextTrans() .set_name("cnexttrans10")
         cnexttrans10 .add_sources(cmdact1) .add_destinations(dispatch)
         
-        datatrans22 = DataTrans(re.compile('#playnotes ')) .set_name("datatrans22")
-        datatrans22 .add_sources(dispatch) .add_destinations(cmdplaynotes1)
+        datatrans23 = DataTrans(re.compile('#playnotes ')) .set_name("datatrans23")
+        datatrans23 .add_sources(dispatch) .add_destinations(cmdplaynotes1)
         
         cnexttrans11 = CNextTrans() .set_name("cnexttrans11")
         cnexttrans11 .add_sources(cmdplaynotes1) .add_destinations(dispatch)
         
-        datatrans23 = DataTrans(re.compile('#camera$')) .set_name("datatrans23")
-        datatrans23 .add_sources(dispatch) .add_destinations(cmdsendcamera1)
+        datatrans24 = DataTrans(re.compile('#camera$')) .set_name("datatrans24")
+        datatrans24 .add_sources(dispatch) .add_destinations(cmdsendcamera1)
         
-        completiontrans10 = CompletionTrans() .set_name("completiontrans10")
-        completiontrans10 .add_sources(cmdsendcamera1) .add_destinations(askgpt2)
+        completiontrans16 = CompletionTrans() .set_name("completiontrans16")
+        completiontrans16 .add_sources(cmdsendcamera1) .add_destinations(askgpt2)
         
         openaitrans2 = OpenAITrans() .set_name("openaitrans2")
         openaitrans2 .add_sources(askgpt2) .add_destinations(check)
         
-        datatrans24 = DataTrans() .set_name("datatrans24")
-        datatrans24 .add_sources(dispatch) .add_destinations(print2)
+        datatrans25 = DataTrans() .set_name("datatrans25")
+        datatrans25 .add_sources(dispatch) .add_destinations(print2)
         
         nexttrans1 = NextTrans() .set_name("nexttrans1")
         nexttrans1 .add_sources(print2) .add_destinations(dispatch)
         
-        completiontrans11 = CompletionTrans() .set_name("completiontrans11")
-        completiontrans11 .add_sources(dispatch) .add_destinations(loop)
+        completiontrans17 = CompletionTrans() .set_name("completiontrans17")
+        completiontrans17 .add_sources(dispatch) .add_destinations(loop)
         
         cnexttrans12 = CNextTrans() .set_name("cnexttrans12")
         cnexttrans12 .add_sources(turntoward) .add_destinations(dispatch)
         
-        failuretrans2 = FailureTrans() .set_name("failuretrans2")
-        failuretrans2 .add_sources(turntoward) .add_destinations(statenode1)
+        failuretrans8 = FailureTrans() .set_name("failuretrans8")
+        failuretrans8 .add_sources(turntoward) .add_destinations(statenode1)
         
         nexttrans2 = NextTrans() .set_name("nexttrans2")
         nexttrans2 .add_sources(statenode1) .add_destinations(dispatch)
@@ -649,8 +937,8 @@ class Celeste(StateMachineProgram):
         openaitrans3 = OpenAITrans() .set_name("openaitrans3")
         openaitrans3 .add_sources(cmdfailed1) .add_destinations(check)
         
-        failuretrans3 = FailureTrans() .set_name("failuretrans3")
-        failuretrans3 .add_sources(pilottoobject) .add_destinations(cmdfailed2)
+        failuretrans9 = FailureTrans() .set_name("failuretrans9")
+        failuretrans9 .add_sources(pilottoobject) .add_destinations(cmdfailed2)
         
         openaitrans4 = OpenAITrans() .set_name("openaitrans4")
         openaitrans4 .add_sources(cmdfailed2) .add_destinations(check)
@@ -658,8 +946,8 @@ class Celeste(StateMachineProgram):
         cnexttrans14 = CNextTrans() .set_name("cnexttrans14")
         cnexttrans14 .add_sources(doorpass) .add_destinations(dispatch)
         
-        failuretrans4 = FailureTrans() .set_name("failuretrans4")
-        failuretrans4 .add_sources(doorpass) .add_destinations(cmdfailed3)
+        failuretrans10 = FailureTrans() .set_name("failuretrans10")
+        failuretrans10 .add_sources(doorpass) .add_destinations(cmdfailed3)
         
         openaitrans5 = OpenAITrans() .set_name("openaitrans5")
         openaitrans5 .add_sources(cmdfailed3) .add_destinations(check)
@@ -667,10 +955,19 @@ class Celeste(StateMachineProgram):
         cnexttrans15 = CNextTrans() .set_name("cnexttrans15")
         cnexttrans15 .add_sources(pickup) .add_destinations(dispatch)
         
-        failuretrans5 = FailureTrans() .set_name("failuretrans5")
-        failuretrans5 .add_sources(pickup) .add_destinations(statenode2)
+        failuretrans11 = FailureTrans() .set_name("failuretrans11")
+        failuretrans11 .add_sources(pickup) .add_destinations(statenode2)
         
         nexttrans3 = NextTrans() .set_name("nexttrans3")
         nexttrans3 .add_sources(statenode2) .add_destinations(dispatch)
+        
+        cnexttrans16 = CNextTrans() .set_name("cnexttrans16")
+        cnexttrans16 .add_sources(search) .add_destinations(dispatch)
+        
+        failuretrans12 = FailureTrans() .set_name("failuretrans12")
+        failuretrans12 .add_sources(search) .add_destinations(cmdfailed4)
+        
+        openaitrans6 = OpenAITrans() .set_name("openaitrans6")
+        openaitrans6 .add_sources(cmdfailed4) .add_destinations(check)
         
         return self
