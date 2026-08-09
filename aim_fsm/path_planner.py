@@ -196,7 +196,7 @@ class PathPlanner():
         for i in range(len(offsets)):
             offset = offsets[i]
             if i > 0:
-                wf = WaveFront(self.robot, bbox=rrt_instance.bbox)  # need a fresh grid
+                wf = WaveFront(rrt_instance.robot, bbox=rrt_instance.bbox)  # need a fresh grid
             # obstacles come after the goal so they can overwrite goal pixels
             for obstacle in fat_obstacles:
                 wf.add_obstacle(obstacle)
