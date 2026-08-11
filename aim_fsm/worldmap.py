@@ -372,9 +372,10 @@ class WorldMap():
                 continue
             obj.sensor_distance = distance
             if isinstance(obj, AprilTagObj):
+                print(f'{spec=} {cy=} {hit=} {distance=}')
                 tag_angle_correction_factor = 4  # guesstimate
                 angle = spec['angle'] - (0 if spec['angle'] < 180 else 360)
-                theta = self.robot.pose.theta - angle / 180 * pi * tag_angle_correction_factor
+                theta = wrap_angle(self.robot.pose.theta + pi - angle / 180 * pi * tag_angle_correction_factor)
             else:
                 theta = None
             obj.pose = Pose(x, y, 0, theta)
@@ -718,7 +719,7 @@ class WorldMap():
             else:
                 pass # wait a bit to see if held object comes back
 
-    def check_spec_indicates_held(self,obj):
+    def check_spec_indicates_held(self, obj):
         if not isinstance(obj, (BarrelObj,SportsBallObj)):
             return False
         if isinstance(obj, BarrelObj):
@@ -743,7 +744,7 @@ class WorldMap():
         if self.robot.robot0.has_any_barrel() or self.robot.robot0.has_sports_ball():
             held_obj = None
             for obj in self.objects.values():
-                if self.check_spec_indicates_held(obj):
+                if obj.is_visible and self.check_spec_indicates_held(obj):
                     held_obj = obj
                     break
             if held_obj:
