@@ -58,8 +58,8 @@ class knock(StateMachineProgram):
         detector = DominoWorldDetector(
             conf_threshold=0.35,  
             standing_weights="standing.pt",
-            fallen_weights="fallen.pt",
-            standing_label_weights="standinghalf.pt",
+            fallen_weights="standinghalf.pt",
+            standing_label_weights="different.pt",
             fallen_label_weights="fallenhalf.pt",
             frame_skip=1,         
         )
@@ -244,17 +244,16 @@ class knock(StateMachineProgram):
                 print(f"[KNOCK] Turning back {KNOCK_TURN_DEG:.0f} deg...")
                 self.robot.actuators["drive"].turn(self, math.radians(KNOCK_TURN_DEG), None)
 
-        def setup(self):
-            t35 = self.TurnKnock35().set_name("t35").set_parent(self)
-            n_right = self.NudgeRightFast().set_name("n_right").set_parent(self)
-            n_left = self.NudgeLeftFast().set_name("n_left").set_parent(self)
-            t_back = self.TurnBackFromKnock().set_name("t_back").set_parent(self)
+        $setup {
+            t35: self.TurnKnock35()
+            n_right: self.NudgeRightFast()
+            n_left: self.NudgeLeftFast()
+            t_back: self.TurnBackFromKnock()
 
-            CompletionTrans().add_sources(t35).add_destinations(n_right)
-            CompletionTrans().add_sources(n_right).add_destinations(n_left)
-            CompletionTrans().add_sources(n_left).add_destinations(t_back)
-            
-            return self
+            t35 =C=> n_right
+            n_right =C=> n_left
+            n_left =C=> t_back
+        }
 
     class RetreatFromDomino(ActionNode):
         def start(self, event=None):
@@ -337,50 +336,49 @@ class knock(StateMachineProgram):
     # ------------------------------------------------------------------
     # FSM wiring
     # ------------------------------------------------------------------
-    def setup(self):
-        intro = Print("\n[READY] Fast domino knock behavior active.").set_name("intro").set_parent(self)
+    $setup {
+        intro: Print("\n[READY] Fast domino knock behavior active.")
 
-        find = self.FindStandingDomino().set_name("find").set_parent(self)
-        wait_scan = StateNode().set_name("wait_scan").set_parent(self)
+        find: self.FindStandingDomino()
+        wait_scan: StateNode()
 
-        approach = self.ApproachDomino().set_name("approach").set_parent(self)
-        approach_pilot_event = Print("[KNOCK] Pilot event during approach; rescanning...").set_name("approach_pilot_event").set_parent(self)
+        approach: self.ApproachDomino()
+        approach_pilot_event: Print("[KNOCK] Pilot event during approach; rescanning...")
 
-        knock_action = self.KnockDomino().set_name("knock_action").set_parent(self)
-        retreat = self.RetreatFromDomino().set_name("retreat").set_parent(self)
-        motion_failed = Print("[KNOCK] Motion action failed; rescanning...").set_name("motion_failed").set_parent(self)
+        knock_action: self.KnockDomino()
+        retreat: self.RetreatFromDomino()
+        motion_failed: Print("[KNOCK] Motion action failed; rescanning...")
 
-        check_status = self.CheckKnockResult().set_name("check_status").set_parent(self)
-        report = self.ReportKnockSuccess().set_name("report").set_parent(self)
-        retry_decision = self.RetryOrGiveUp().set_name("retry_decision").set_parent(self)
+        check_status: self.CheckKnockResult()
+        report: self.ReportKnockSuccess()
+        retry_decision: self.RetryOrGiveUp()
 
         # --- intro / scan loop ---
-        CompletionTrans().add_sources(intro).add_destinations(find)
-        SuccessTrans().add_sources(find).add_destinations(approach)
-        FailureTrans().add_sources(find).add_destinations(wait_scan)
-        TimerTrans(RESCAN_DELAY_SEC).add_sources(wait_scan).add_destinations(find)
+        intro =C=> find
+        find =S=> approach
+        find =F=> wait_scan
+        wait_scan =T(RESCAN_DELAY_SEC)=> find
 
         # --- approach via the pilot ---
-        CompletionTrans().add_sources(approach).add_destinations(knock_action)
-        PilotTrans().add_sources(approach).add_destinations(approach_pilot_event)
-        NullTrans().add_sources(approach_pilot_event).add_destinations(wait_scan)
+        approach =C=> knock_action
+        approach =PILOT=> approach_pilot_event
+        approach_pilot_event =N=> wait_scan
 
         # --- knock action parent node & sequence flow ---
-        CompletionTrans().add_sources(knock_action).add_destinations(retreat)
-        FailureTrans().add_sources(knock_action).add_destinations(motion_failed)
+        knock_action =C=> retreat
+        knock_action =F=> motion_failed
 
-        CompletionTrans().add_sources(retreat).add_destinations(check_status)
-        FailureTrans().add_sources(retreat).add_destinations(motion_failed)
+        retreat =C=> check_status
+        retreat =F=> motion_failed
 
-        NullTrans().add_sources(motion_failed).add_destinations(wait_scan)
+        motion_failed =N=> wait_scan
 
         # --- check results ---
-        SuccessTrans().add_sources(check_status).add_destinations(report)
-        FailureTrans().add_sources(check_status).add_destinations(retry_decision)
+        check_status =S=> report
+        check_status =F=> retry_decision
 
-        CompletionTrans().add_sources(report).add_destinations(wait_scan)
+        report =C=> wait_scan
 
-        SuccessTrans().add_sources(retry_decision).add_destinations(approach)
-        FailureTrans().add_sources(retry_decision).add_destinations(wait_scan)
-
-        return self
+        retry_decision =S=> approach
+        retry_decision =F=> wait_scan
+    }

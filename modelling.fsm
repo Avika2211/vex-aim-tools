@@ -24,6 +24,7 @@ from aim_fsm.domino import (
 )
 
 import aim_fsm.domino
+import importlib
 importlib.reload(aim_fsm.domino)
 
 KNOWN_LENGTH_MM = 48.0
@@ -212,18 +213,12 @@ class modelling(StateMachineProgram):
                     print(obj)
             self.post_completion()
 
-    def setup(self):
-        intro = Print("\n[READY] Directional domino perception active.\nType 'tm' in terminal for snapshot.").set_name("intro").set_parent(self)
-        loop = StateNode().set_name("loop").set_parent(self)
-        report = self.ReportDominoes().set_name("report").set_parent(self)
-        
-        completiontrans1 = CompletionTrans().set_name("completiontrans1")
-        completiontrans1.add_sources(intro).add_destinations(loop)
-        
-        textmsgtrans1 = TextMsgTrans().set_name("textmsgtrans1")
-        textmsgtrans1.add_sources(loop).add_destinations(report)
-        
-        completiontrans2 = CompletionTrans().set_name("completiontrans2")
-        completiontrans2.add_sources(report).add_destinations(loop)
-        
-        return self
+    $setup {
+        intro: Print("\n[READY] Directional domino perception active.\nType 'tm' in terminal for snapshot.")
+        loop: StateNode()
+        report: self.ReportDominoes()
+
+        intro =C=> loop
+        loop =TEXT(tm)=> report
+        report =C=> loop
+    }

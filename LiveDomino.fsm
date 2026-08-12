@@ -17,7 +17,7 @@ WHITE_THRESHOLD = 250
 BORDER_MARGIN = 4
 
 # ==========================================
-#         DISTANCE ESTIMATION SETTINGS
+#          DISTANCE ESTIMATION SETTINGS
 # ==========================================
 KNOWN_LENGTH = 4.8  # Real domino length in centimeters
 FOCAL_LENGTH = 369.4 
@@ -289,9 +289,6 @@ class LiveDomino(StateMachineProgram):
 
                 distance = (KNOWN_LENGTH * FOCAL_LENGTH) / pixel_length
 
-                # REMOVED LOG SPAM:
-                # suggested_focal_at_30cm = (pixel_length * 30.0) / KNOWN_LENGTH
-
                 predictions.append(
                     {
                         "bbox": bbox,
@@ -346,15 +343,12 @@ class LiveDomino(StateMachineProgram):
             cv2.imshow("Domino Live Segmentation & Detection", img)
             cv2.waitKey(1)
 
-    def setup(self):
-        begin = StateNode().set_name("begin").set_parent(self)
-        
-        detect = self.DetectDominoes().set_name("detect").set_parent(self)
-        display = self.DisplayResults().set_name("display").set_parent(self)
+    $setup {
+        begin: StateNode()
+        detect: self.DetectDominoes()
+        display: self.DisplayResults()
 
-        TimerTrans(2).add_sources(begin).add_destinations(detect)
-
-        DataTrans().add_sources(detect).add_destinations(display)
-        NullTrans().add_sources(display).add_destinations(detect)
-
-        return self
+        begin =T(2)=> detect
+        detect =D=> display
+        display =N=> detect
+    }
