@@ -2,7 +2,7 @@ from math import pi
 import time
 from typing import Any, Callable, Optional
 import re
-from importlib import __import__, reload
+from importlib import __import__, import_module, reload
 try:
     from termcolor import cprint
 except:
@@ -28,7 +28,6 @@ from viewer.particle_viewer import ParticleViewer
 from .rrt import RRT
 from viewer.path_viewer import PathViewer
 from viewer.camera_overlay import apply_overlays
-from viewer.lifecycle import ensure_viewer
 from .camera import AIVISION_RESOLUTION_SCALE
 from . import pilot
 #from . import custom_objs
@@ -47,7 +46,6 @@ class StateMachineProgram(StateNode):
                  annotated_image_callback: Optional[Callable[[Any, dict], None]] = None,
                  viewer_crosshairs = False,  # set to True to draw viewer crosshairs
                  speech = True,
-                 openai_model = None,        # set to 'gpt-5.6-sol' or other model name to override the client default
                  particle_filter = None,
                  num_particles = 500,
                  landmarks = dict(),
@@ -59,19 +57,21 @@ class StateMachineProgram(StateNode):
                  dictionary_name = cv2.aruco.DICT_4X4_100,
                  aruco_disabled_ids = (17, 37),
                  aruco_marker_size = ARUCO_MARKER_SIZE,
+                 domino = False,
+                 domino_labeling = False,
+                 domino_conf_threshold = 0.3,
+                 domino_weights_path = None,
 
                  perched_cameras = False,
 
                  rrt = None,
+                 domino_face_weights_path = None,
                  ):
         super().__init__()
         self.name = self.__class__.__name__.lower()
         self.parent = None
         self.robot.robot0.set_xy_position(0,0)
         self.robot.robot0.inertial.set_heading(0)
-        if openai_model is not None:
-            self.robot.openai_client.model = openai_model
-        # print(f'OpenAI model: {self.robot.openai_client.model}')  # if wish to show the model in use
 
         if not hasattr(self.robot, 'erouter'):
             self.robot.erouter = EventRouter()
@@ -100,6 +100,47 @@ class StateMachineProgram(StateNode):
         if self.aruco:
             self.robot.aruco_detector = \
                 RobotArucoDetector(self.robot, dictionary_name, aruco_marker_size, aruco_disabled_ids)
+        else:
+            self.robot.aruco_detector = None
+
+        self.domino = bool(domino)
+        self.domino_labeling = bool(domino_labeling)
+        self.domino_conf_threshold = float(domino_conf_threshold)
+        self.domino_weights_path = domino_weights_path
+        self.domino_face_weights_path = domino_face_weights_path
+        self.robot.domino_detector = None
+        if self.domino:
+            detector_cls = None
+            import_errors = []
+            for module_name in ("lab8.domino_world_detector", "domino_world_detector"):
+                try:
+                    detector_module = import_module(module_name)
+                    detector_cls = getattr(detector_module, "DominoWorldDetector")
+                    if self.domino_labeling:
+                        if hasattr(detector_module, "ClassicalDominoLabelProvider"):
+                            label_provider_cls = getattr(detector_module, "ClassicalDominoLabelProvider")
+                            label_provider = label_provider_cls()
+                        elif hasattr(detector_module, "CNNDominoLabelProvider"):
+                            label_provider_cls = getattr(detector_module, "CNNDominoLabelProvider")
+                            label_provider = label_provider_cls(weights_path=self.domino_face_weights_path)
+                        else:
+                            raise AttributeError(
+                                "domino_world_detector is missing both ClassicalDominoLabelProvider and CNNDominoLabelProvider"
+                            )
+                    else:
+                        label_provider_cls = getattr(detector_module, "NullDominoLabelProvider")
+                        label_provider = label_provider_cls()
+                    self.robot.domino_detector = detector_cls(
+                        conf_threshold=self.domino_conf_threshold,
+                        weights_path=self.domino_weights_path,
+                        label_provider=label_provider,
+                    )
+                    break
+                except Exception as exc:
+                    import_errors.append((module_name, exc))
+            if self.robot.domino_detector is None:
+                joined = "; ".join(f"{name}: {exc}" for name, exc in import_errors)
+                raise ImportError(f"Unable to initialize domino detector ({joined})")
 
         self.num_particles = num_particles
         self.landmarks = landmarks
@@ -153,33 +194,26 @@ class StateMachineProgram(StateNode):
 
         # Launch viewers
         if self.launch_cam_viewer:
-            ensure_viewer(
-                self.robot,
-                'cam_viewer',
-                lambda: CamViewer(self.robot, user_annotate_function=self.user_annotate),
-            )
+            if not self.robot.cam_viewer:
+                self.robot.cam_viewer = \
+                    CamViewer(self.robot, user_annotate_function=self.user_annotate)
+                self.robot.cam_viewer.start()
 
         if self.launch_worldmap_viewer:
-            ensure_viewer(
-                self.robot,
-                'worldmap_viewer',
-                lambda: WorldMapViewer(self.robot),
-            )
+            if not self.robot.worldmap_viewer is True:
+                self.robot.worldmap_viewer = WorldMapViewer(self.robot)
+                self.robot.worldmap_viewer.start()
 
         if self.launch_particle_viewer:
-            ensure_viewer(
-                self.robot,
-                'particle_viewer',
-                lambda: ParticleViewer(self.robot, scale=self.particle_viewer_scale),
-            )
+            if not self.robot.particle_viewer:
+                self.robot.particle_viewer = \
+                    ParticleViewer(self.robot, scale=self.particle_viewer_scale)
+                self.robot.particle_viewer.start()
 
         if self.launch_path_viewer:
-            print('ensure viewer')
-            ensure_viewer(
-                self.robot,
-                'path_viewer',
-                lambda: PathViewer(self.robot, self.robot.rrt),
-            )
+            if not self.robot.path_viewer:
+                self.robot.path_viewer = PathViewer(self.robot, self.robot.rrt)
+            self.robot.path_viewer.start()
 
         if self.speech:
             self.robot.speech_listener.enable()
@@ -293,7 +327,7 @@ class StateMachineProgram(StateNode):
     def process_image(self,image):
         # Aruco image processing
         gray = cv2.cvtColor(image,cv2.COLOR_RGB2GRAY)
-        if self.aruco:
+        if self.aruco and self.robot.aruco_detector is not None:
             self.robot.aruco_detector.process_image(gray)
         # Other image processors can run here if the user supplies them.
         self.user_image(image,gray)
