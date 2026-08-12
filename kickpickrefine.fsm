@@ -26,7 +26,7 @@ SEG_MODEL_PATH = os.path.join(PROJECT_DIR, "standing.pt")
 CLS_MODEL_PATH = os.path.join(PROJECT_DIR, "standinghalf.pt")
 FALLEN_MODEL_PRIMARY = os.path.join(PROJECT_DIR, "fallen.pt")
 FALLEN_MODEL_FALLBACK = os.path.join(
-    PROJECT_DIR, "runs_play_dominos", "play_dominos_seg_v1_img160", "weights", "standing.pt"
+    PROJECT_DIR, "runs_play_dominos", "play_dominos_seg_v1_img160", "weights", "bestieee.pt"
 )
 
 # Classifier / Preprocessing Params
@@ -581,7 +581,6 @@ class kickpickrefine(StateMachineProgram):
                 self.post_failure()
 
     class ApproachCheckpoint(ActionNode):
-        """Drives forward to stop 2 cm (20 mm) before reaching the domino."""
         def start(self, event=None):
             super().start(event)
             target = self.parent.target_data
@@ -592,34 +591,29 @@ class kickpickrefine(StateMachineProgram):
             total_distance_mm = float(target["distance_cm"]) * 10.0
             self.parent.last_charge_distance_mm = total_distance_mm
 
-            # Target distance minus 2 cm (20 mm)
             approach_distance_mm = max(0.0, total_distance_mm - 20.0)
             print(f"[Approach Checkpoint] Driving {approach_distance_mm:.1f}mm to reach 2cm from domino...")
             self.robot.actuators["drive"].forward(self, approach_distance_mm)
 
     class TurnRight90(ActionNode):
-        """Turns 90 degrees RIGHT."""
         def start(self, event=None):
             super().start(event)
             print("[Knock Sequence 1/4] Turning 90 degrees RIGHT...")
             self.robot.actuators["drive"].turn(self, math.radians(-90.0), None)
 
     class TurnLeft90(ActionNode):
-        """Turns 90 degrees LEFT."""
         def start(self, event=None):
             super().start(event)
             print("[Knock Sequence 2/4] Turning 90 degrees LEFT...")
             self.robot.actuators["drive"].turn(self, math.radians(90.0), None)
 
     class ForwardKnock13cm(ActionNode):
-        """Drives forward 13 cm (130 mm) to knock the domino."""
         def start(self, event=None):
             super().start(event)
             print("[Knock Sequence 3/4] Driving 130.0 mm (13 cm) FORWARD to knock domino...")
             self.robot.actuators["drive"].forward(self, 130.0, None)
 
     class Retreat4cm(ActionNode):
-        """Retreats backward 4 cm (40 mm)."""
         def start(self, event=None):
             super().start(event)
             print("[Knock Sequence 4/4] Driving 40.0 mm (4 cm) BACKWARD...")
@@ -760,11 +754,7 @@ class kickpickrefine(StateMachineProgram):
 
             self.post_success()
 
-    # ==========================================
-    # 5. STEPWISE POST-MEASUREMENT MOTION NODES
-    # ==========================================
     class Step1_MoveLateralOffset(ActionNode):
-        """Step 1: Move by the measured lateral offset (sideways)"""
         def start(self, event=None):
             super().start(event)
             lat_mm = self.parent.measured_lateral_cm * 10.0 + 50.0
@@ -772,7 +762,6 @@ class kickpickrefine(StateMachineProgram):
             self.robot.actuators["drive"].sideways(self, lat_mm, None)
 
     class Step2_MoveForwardDistancePlus2(ActionNode):
-        """Step 2: Move forward distance + 2 cm (in mm)"""
         def start(self, event=None):
             super().start(event)
             fwd_target_mm = (self.parent.measured_forward_cm + 2.0) * 10.0 + 20.0
@@ -780,7 +769,6 @@ class kickpickrefine(StateMachineProgram):
             self.robot.actuators["drive"].forward(self, fwd_target_mm, None)
 
     class Step3_TurnNegativeComplementaryAngle(ActionNode):
-        """Step 3: Turn the negative of the complementary angle of the dividing angle"""
         def start(self, event=None):
             super().start(event)
             div_angle_deg = self.parent.measured_dividing_angle_deg
@@ -791,11 +779,7 @@ class kickpickrefine(StateMachineProgram):
             print(f"[STEP 3/5] Turning Negative Complementary Angle: {neg_comp_angle_deg:.2f}° ({neg_comp_rad:.3f} rad)")
             self.robot.actuators["drive"].turn(self, neg_comp_rad, None)
 
-    # ==========================================
-    # POST-TURN RE-SCAN & FINE ALIGNMENT NODES
-    # ==========================================
     class RescanFallenClose(StateNode):
-        """Rescans fallen domino black line at close range after turning."""
         def start(self, event=None):
             super().start(event)
             time.sleep(0.15)
@@ -803,7 +787,6 @@ class kickpickrefine(StateMachineProgram):
 
             frame = self.robot.camera_image
             if frame is None:
-                print("[POST-TURN RESCAN] Camera frame empty. Proceeding to final drive...")
                 self.parent.post_turn_sideways_mm = 0.0
                 self.parent.post_turn_angle_rad = 0.0
                 self.post_completion()
@@ -825,7 +808,7 @@ class kickpickrefine(StateMachineProgram):
                     pts = np.fliplr(pts)
                     [vx, vy, x0, y0] = cv2.fitLine(pts, cv2.DIST_L2, 0, 0.01, 0.01)
                     line_angle_rad = math.atan2(vy[0], vx[0])
-            except Exception as err:
+            except Exception:
                 line_angle_rad = 0.0
 
             error_sideways_mm, detected = self.parent.measure_lateral_offset_mm(frame, conf=0.15)
@@ -834,41 +817,36 @@ class kickpickrefine(StateMachineProgram):
 
             self.parent.post_turn_sideways_mm = error_sideways_mm
             self.parent.post_turn_angle_rad = line_angle_rad
-            print(f"[POST-TURN RESCAN] Measured Lateral Error: {error_sideways_mm:.1f}mm, Line Drift: {math.degrees(line_angle_rad):.2f}°")
             self.post_completion()
 
     class FineTuneSideways(ActionNode):
-        """Priority 1: Shifts sideways to align domino center line."""
         def start(self, event=None):
             super().start(event)
             sideways_mm = self.parent.post_turn_sideways_mm
             if abs(sideways_mm) > 1.0:
-                print(f"[FINE-TUNE 1/2 - Priority 1] Shifting sideways by {-sideways_mm:.1f}mm...")
+                print(f"[FINE-TUNE 1/2] Shifting sideways by {-sideways_mm:.1f}mm...")
                 self.robot.actuators["drive"].sideways(self, -sideways_mm, None)
             else:
                 self.post_completion()
 
     class FineTuneParallelAngle(ActionNode):
-        """Priority 2: Adjusts angle to bring base slope slope to 0° (perfectly parallel)."""
         def start(self, event=None):
             super().start(event)
             angle_rad = self.parent.post_turn_angle_rad
             angle_deg = math.degrees(angle_rad)
             if abs(angle_deg) > 0.4:
-                print(f"[FINE-TUNE 2/2 - Priority 2] Adjusting chassis angle by {-angle_deg:.2f}° to zero base slope...")
+                print(f"[FINE-TUNE 2/2] Adjusting chassis angle by {-angle_deg:.2f}°...")
                 self.robot.actuators["drive"].turn(self, -angle_rad, None)
             else:
                 self.post_completion()
 
     class Step4_Move10cmForward(ActionNode):
-        """Step 4: Drives forward into position after fine alignment."""
         def start(self, event=None):
             super().start(event)
-            print("[STEP 4/5] Alignment complete. Driving forward 150.0mm (15 cm)...")
+            print("[STEP 4/5] Alignment complete. Driving forward 150.0mm...")
             self.robot.actuators["drive"].forward(self, 150.0, None)
 
     class Step5_FinalKick(StateNode):
-        """Step 5: Active Kick Action via PlaceKick().now()"""
         def start(self, event=None):
             super().start(event)
             print("[STEP 5/5] Executing PlaceKick().now()...")
@@ -878,96 +856,86 @@ class kickpickrefine(StateMachineProgram):
                 print(f"[STEP 5/5] PlaceKick execution warning: {e}")
             self.post_completion()
 
-    # ==========================================
-    # 6. FSM PIPELINE SETUP
-    # ==========================================
-    def setup(self):
-        begin = StateNode().set_name("begin").set_parent(self)
-        reset = self.ResetRun().set_name("reset").set_parent(self)
-        track = self.TrackAndIdentify().set_name("track").set_parent(self)
-        analyze = self.CalculateTrajectory().set_name("analyze").set_parent(self)
-        move = self.ActuateMotion().set_name("move").set_parent(self)
+    $setup {
+        begin: StateNode()
+        reset: self.ResetRun()
+        track: self.TrackAndIdentify()
+        analyze: self.CalculateTrajectory()
+        move: self.ActuateMotion()
 
-        approach_chk = self.ApproachCheckpoint().set_name("approach_chk").set_parent(self)
+        approach_chk: self.ApproachCheckpoint()
 
-        # Direct Knock & Retreat Sequence Nodes
-        turn_right90 = self.TurnRight90().set_name("turn_right90").set_parent(self)
-        turn_left90 = self.TurnLeft90().set_name("turn_left90").set_parent(self)
-        knock_fwd = self.ForwardKnock13cm().set_name("knock_fwd").set_parent(self)
-        retreat_back = self.Retreat4cm().set_name("retreat_back").set_parent(self)
+        turn_right90: self.TurnRight90()
+        turn_left90: self.TurnLeft90()
+        knock_fwd: self.ForwardKnock13cm()
+        retreat_back: self.Retreat4cm()
 
-        wait_after_kick = StateNode().set_name("wait_after_kick").set_parent(self)
+        wait_after_kick: StateNode()
 
-        prep_pickup = self.PreparePickupRun().set_name("prep_pickup").set_parent(self)
-        detect = self.DetectTarget().set_name("detect").set_parent(self)
+        prep_pickup: self.PreparePickupRun()
+        detect: self.DetectTarget()
 
-        # Post-Measurement Motion Sequence Nodes
-        m_step1 = self.Step1_MoveLateralOffset().set_name("m_step1").set_parent(self)
-        m_step2 = self.Step2_MoveForwardDistancePlus2().set_name("m_step2").set_parent(self)
-        m_step3 = self.Step3_TurnNegativeComplementaryAngle().set_name("m_step3").set_parent(self)
+        m_step1: self.Step1_MoveLateralOffset()
+        m_step2: self.Step2_MoveForwardDistancePlus2()
+        m_step3: self.Step3_TurnNegativeComplementaryAngle()
 
-        # Post-Turn Rescan & Fine Alignment Nodes
-        rescan_close = self.RescanFallenClose().set_name("rescan_close").set_parent(self)
-        fine_sideways = self.FineTuneSideways().set_name("fine_sideways").set_parent(self)
-        fine_parallel = self.FineTuneParallelAngle().set_name("fine_parallel").set_parent(self)
+        rescan_close: self.RescanFallenClose()
+        fine_sideways: self.FineTuneSideways()
+        fine_parallel: self.FineTuneParallelAngle()
 
-        m_step4 = self.Step4_Move10cmForward().set_name("m_step4").set_parent(self)
-        m_step5 = self.Step5_FinalKick().set_name("m_step5").set_parent(self)
+        m_step4: self.Step4_Move10cmForward()
+        m_step5: self.Step5_FinalKick()
 
-        done_print = Print("Sequence completed successfully!").set_name("done_print").set_parent(self)
-        wait_scan = StateNode().set_name("wait_scan").set_parent(self)
+        done_print: Print("Sequence completed successfully!")
+        wait_scan: StateNode()
 
         # Transitions
-        TimerTrans(0.5).add_sources(begin).add_destinations(reset)
-        CompletionTrans().add_sources(reset).add_destinations(track)
+        begin =T(0.5)=> reset
+        reset =C=> track
 
-        DataTrans().add_sources(track).add_destinations(analyze)
-        FailureTrans().add_sources(track).add_destinations(wait_scan)
-        TimerTrans(1.0).add_sources(wait_scan).add_destinations(track)
+        track =D=> analyze
+        track =F=> wait_scan
+        wait_scan =T(1.0)=> track
 
-        DataTrans().add_sources(analyze).add_destinations(move)
-        SuccessTrans().add_sources(analyze).add_destinations(approach_chk)
-        FailureTrans().add_sources(analyze).add_destinations(wait_scan)
+        analyze =D=> move
+        analyze =S=> approach_chk
+        analyze =F=> wait_scan
 
-        CompletionTrans().add_sources(move).add_destinations(track)
-        FailureTrans().add_sources(move).add_destinations(wait_scan)
+        move =C=> track
+        move =F=> wait_scan
 
-        # Direct flow from Approach Checkpoint -> Turn 90° Right (No near readjustment)
-        CompletionTrans().add_sources(approach_chk).add_destinations(turn_right90)
-        FailureTrans().add_sources(approach_chk).add_destinations(wait_scan)
+        approach_chk =C=> turn_right90
+        approach_chk =F=> wait_scan
 
-        CompletionTrans().add_sources(turn_right90).add_destinations(turn_left90)
-        FailureTrans().add_sources(turn_right90).add_destinations(wait_scan)
+        turn_right90 =C=> turn_left90
+        turn_right90 =F=> wait_scan
 
-        CompletionTrans().add_sources(turn_left90).add_destinations(knock_fwd)
-        FailureTrans().add_sources(turn_left90).add_destinations(wait_scan)
+        turn_left90 =C=> knock_fwd
+        turn_left90 =F=> wait_scan
 
-        CompletionTrans().add_sources(knock_fwd).add_destinations(retreat_back)
-        FailureTrans().add_sources(knock_fwd).add_destinations(wait_scan)
+        knock_fwd =C=> retreat_back
+        knock_fwd =F=> wait_scan
 
-        CompletionTrans().add_sources(retreat_back).add_destinations(wait_after_kick)
-        FailureTrans().add_sources(retreat_back).add_destinations(wait_scan)
+        retreat_back =C=> wait_after_kick
+        retreat_back =F=> wait_scan
 
-        TimerTrans(1.5).add_sources(wait_after_kick).add_destinations(prep_pickup)
+        wait_after_kick =T(1.5)=> prep_pickup
 
-        # Measurement -> STEPWISE MOTION FLOW
-        CompletionTrans().add_sources(prep_pickup).add_destinations(detect)
+        prep_pickup =C=> detect
         
-        # Detect -> Step 1 -> Step 2 -> Step 3 (Turn) -> Rescan -> Sideways Align (Priority 1) -> Parallel Angle Align (Priority 2, Slope 0°) -> Step 4 -> Step 5
-        SuccessTrans().add_sources(detect).add_destinations(m_step1)
-        CompletionTrans().add_sources(m_step1).add_destinations(m_step2)
-        CompletionTrans().add_sources(m_step2).add_destinations(m_step3)
+        detect =S=> m_step1
+        m_step1 =C=> m_step2
+        m_step2 =C=> m_step3
         
-        # Turn hone ke baad re-scanning & fine alignment
-        CompletionTrans().add_sources(m_step3).add_destinations(rescan_close)
-        CompletionTrans().add_sources(rescan_close).add_destinations(fine_sideways)
-        CompletionTrans().add_sources(fine_sideways).add_destinations(fine_parallel)
-        CompletionTrans().add_sources(fine_parallel).add_destinations(m_step4)
+        m_step3 =C=> rescan_close
+        rescan_close =C=> fine_sideways
+        fine_sideways =C=> fine_parallel
+        fine_parallel =C=> m_step4
 
-        CompletionTrans().add_sources(m_step4).add_destinations(m_step5)
-        CompletionTrans().add_sources(m_step5).add_destinations(done_print)
-        FailureTrans().add_sources(detect).add_destinations(done_print)
+        m_step4 =C=> m_step5
+        m_step5 =C=> done_print
+        detect =F=> done_print
 
-        NullTrans().add_sources(done_print).add_destinations(reset)
-
-        return self
+        done_print =N=> reset
+    }
+}
