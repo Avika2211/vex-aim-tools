@@ -14,7 +14,6 @@ from PyQt6.QtQuick import QQuickImageProvider, QQuickView
 from aim_fsm.camera import AIVISION_RESOLUTION_SCALE  # legacy code expects this in scope
 
 from .help_texts import WORLD_HELP_TEXT
-from .lifecycle import stop_timer_if_view_hidden
 from .worldmap_model import WorldMapModel
 
 
@@ -93,6 +92,36 @@ class TagTextureProvider(QQuickImageProvider):
         return img, result_size
 
 
+class DominoTextTextureProvider(QQuickImageProvider):
+    """Image provider that renders unknown domino halves as transparent '?' textures."""
+
+    def __init__(self) -> None:
+        super().__init__(QQuickImageProvider.ImageType.Image)
+        self._cache: dict[str, QImage] = {}
+        self._texture_width = 120
+        self._texture_height = 120
+
+    def requestImage(self, id: str, requestedSize: QSize):  # type: ignore[override]
+        result_size = QSize(self._texture_width, self._texture_height)
+        cache_key = id or "question"
+        if cache_key in self._cache:
+            return self._cache[cache_key], result_size
+
+        img = QImage(self._texture_width, self._texture_height, QImage.Format.Format_RGBA8888)
+        img.fill(QColor(0, 0, 0, 0))
+
+        painter = QPainter(img)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+        painter.setPen(QColor(35, 35, 35, 235))
+        painter.setFont(QFont("Arial", 88, QFont.Weight.Black))
+        painter.drawText(img.rect(), 0x84, "?")  # 0x84 = AlignCenter | AlignVCenter
+        painter.end()
+
+        self._cache[cache_key] = img
+        return img, result_size
+
+
 class WorldMapViewer(QObject):
     """Drop-in replacement for :mod:`aim_fsm.legacy.worldmap_viewer`."""
 
@@ -124,6 +153,7 @@ class WorldMapViewer(QObject):
         self._app = QGuiApplication.instance() or QGuiApplication([])
         self._model = WorldMapModel()
         self._tag_texture_provider = TagTextureProvider()
+        self._domino_text_provider = DominoTextTextureProvider()
 
         self._timer = QTimer(self)
         self._timer.setInterval(int(update_interval_ms))
@@ -132,7 +162,6 @@ class WorldMapViewer(QObject):
         self._view = QQuickView()
         self._view.setTitle(self._window_name)
         self._view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
-        self._bind_visibility_handler()
 
         self._context = self._initialise_qml_context()
         self.refresh()
@@ -153,9 +182,6 @@ class WorldMapViewer(QObject):
     def stop(self) -> None:
         self._timer.stop()
         self._view.close()
-
-    def is_visible(self) -> bool:
-        return self._view.isVisible()
 
     def refresh(self) -> None:
         snapshot = getattr(self._worldmap, "snapshot_objects", None)
@@ -209,6 +235,7 @@ class WorldMapViewer(QObject):
         engine = self._view.engine()
         engine.addImportPath(str(qml_dir))
         engine.addImageProvider("tagtexture", self._tag_texture_provider)
+        engine.addImageProvider("dominotext", self._domino_text_provider)
 
         context = self._view.rootContext()
         context.setContextProperty("worldModel", self._model)
@@ -221,16 +248,6 @@ class WorldMapViewer(QObject):
             errors = "\n".join(error.toString() for error in self._view.errors())
             raise RuntimeError(f"Failed to load WorldMapView.qml:\n{errors}")
         return context
-
-    def _bind_visibility_handler(self) -> None:
-        signal = getattr(self._view, "visibleChanged", None)
-        if signal is None:
-            signal = getattr(self._view, "visibilityChanged", None)
-        if signal is not None:
-            signal.connect(self._handle_visibility_changed)
-
-    def _handle_visibility_changed(self, *args) -> None:
-        stop_timer_if_view_hidden(self._view, self._timer)
 
     def _focus_root(self) -> None:
         try:
