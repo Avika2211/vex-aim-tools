@@ -547,22 +547,35 @@ class WorldMap():
             else:
                 print(f'*** Unknown: spec={spec}')
                 continue
-            if spec['name'] == 'Robot':
+            if spec['name'] == 'Robot':   # avoid spurious robot creation for now
                 continue
+
             obj = self.make_vision_object(spec)
             obj.is_visible = True
-            cx = (spec['originx'] + spec['width']/2) * AIVISION_RESOLUTION_SCALE
-            corr_height = max(spec['height'], spec['width']*1.10)
+
+            # Calculate midpoint of bottom edge, which we assume is on the floor
+            height = spec['height']
+            width = spec['width']
+            cx = (spec['originx'] + width/2) * AIVISION_RESOLUTION_SCALE
+            if isinstance(obj, BarrelObj):
+                # correct height for possible occlusion by foreground object
+                corr_height = max(height, width*1.10)
+            elif isinstance(obj, AprilTagObj):
+                corr_height = min(height, width)
+            else:
+                corr_height = height
             cy = (spec['originy'] + corr_height) * AIVISION_RESOLUTION_SCALE
             if isinstance(obj, AprilTagObj):
-                cy += spec['height'] * 2 * AIVISION_RESOLUTION_SCALE
+                TAG_TO_GROUND_CORRECTION = 1.25 # should be 2.0 but empirically 1.25 works better
+                cy += corr_height * TAG_TO_GROUND_CORRECTION * AIVISION_RESOLUTION_SCALE
             hit = self.robot.kine.project_to_ground(cx, cy)
-            K1 = 1.55; K2 = -58.4
-            hit[0] = K1 * hit[0] + K2
             angle = atan2(hit[1,0], hit[0,0])
+            # offset hit by half the object thickness
             if obj.__dict__.get('diameter'):
                 half_diameter = obj.diameter / 2
-                hit += point(cos(angle) * half_diameter, sin(angle) * half_diameter, 0)
+                increment = point(cos(angle) * half_diameter, sin(angle) * half_diameter, 0)
+                hit += increment
+            # convert to world coordinates
             robotpos = point(self.robot.pose.x, self.robot.pose.y)
             objpos = aboutZ(self.robot.pose.theta).dot(hit) + robotpos
             x = objpos[0][0]
@@ -573,9 +586,11 @@ class WorldMap():
                 continue
             obj.sensor_distance = distance
             if isinstance(obj, AprilTagObj):
-                tag_angle_correction_factor = 4
+                obj.sensor_bearing = angle
+                tag_angle_correction_factor = 4  # guesstimate
                 angle = spec['angle'] - (0 if spec['angle'] < 180 else 360)
-                theta = self.robot.pose.theta - angle / 180 * pi * tag_angle_correction_factor
+                obj.sensor_orient = wrap_angle(pi - angle / 180 * pi * tag_angle_correction_factor)
+                theta = wrap_angle(self.robot.pose.theta + obj.sensor_orient)
             else:
                 theta = None
             obj.pose = Pose(x, y, 0, theta)
@@ -1089,7 +1104,7 @@ class WorldMap():
     def get_prompt(self):
         with self._lock:
             prompt = ''
-            prompt += f'It is now {datetime.datetime.now().strftime("%B %d, %Y, %I:%M:%S %p")}.\n'
+            prompt += f'It is now {datetime.datetime.now().astimezone().strftime("%B %d, %Y, %I:%M:%S %p %Z")}.\n'
             if self.robot.particle_filter.state == self.robot.particle_filter.LOCALIZED:
                 prompt += f'You are located at ({round(self.robot.pose.x)}, {round(self.robot.pose.y)})\n'
                 prompt += f'Your heading is {round(self.robot.pose.theta*180/pi)} degrees\n'

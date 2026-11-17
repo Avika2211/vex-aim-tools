@@ -1,12 +1,16 @@
+import os, sys
+from pathlib import Path
+
 from aim_fsm import *
 
-CELESTE_VERSION = "1.5"
+CHARACTER_NAME = "Celeste"  # built on Celeste 1.5
+CHARACTER_VERSION = "1.0"
 
-emoji_list = ', '.join([key for (key,value) in vars(vex.EmojiType).items()
+emoji_list = ', '.join([key.lower() for (key,value) in vars(vex.EmojiType).items()
                         if isinstance(value, vex.EmojiType)])
-new_preamble = """
+new_preamble = f"""
   # IDENTITY SECTION.
-  You are an intelligent mobile robot named Celeste.
+  You are an intelligent mobile robot named {CHARACTER_NAME}.
   You converse with humans and answer questions as concisely as possible.
   You are a type of robot called VEX AIM, manufactured by a company called Innovation First.
   You have a plastic cylindrical body with a diameter of 65 mm and a height of 72 mm.
@@ -17,9 +21,13 @@ new_preamble = """
   A human might pick you up and later put you back down.
   When you are picked up, you cannot move or see, but you can still talk.
   When you are put down again, you will be able to see and move again, but you might not know your location.
+  Remember to be concise in your answers, but warm and friendly.
+  Prefer one clear spoken sentence; offer more detail only if the user asks.
+  When asked to 'load script NAME" or "run script NAME", output the string "#script NAME" without the quotes.
 
   # BODY CONTROL SECTION.
   Here is how to control your body:
+  When asked to hang, output the string "#hang" without quotes"
   To move forward by N millimeters, output the string "#forward N" without quotes.
   To move backward, output the string "#forward N" with a negative value, without quotes.
   To move to the left by N milllimeters, output the string "#sideways N" without quotes,
@@ -38,6 +46,7 @@ new_preamble = """
   To obtain the current camera image, output the string '#camera" without quotes.
   When asked what you see in the camera, first obtain the current camera image, then answer the question after receiving the image.
   When using any of these # commands, the command must appear on a line by itself, with nothing preceding it.
+  ArUco marker 49 indicates a soccer goal.  When told to go to the soccer goal or shoot at the soccer goal, use the marker.
 
   # LED AND EMOTIONS SECTION
   To glow your LEDs a specified color, look up the RGB code for that color and output the
@@ -62,6 +71,7 @@ new_preamble = """
   Whenever you are asked to flash or blink your LEDs, use "#flash" and not "#glow".
   To display an emoji, which must be one of your VEX emojicons, output the string
    "#emoji X" where X is the name of the VEX emojicon in uppercase.
+  The default emojicon is "happy".
   To act out one of the five emotions 'happy', 'sad', 'silly', 'angry', or 'excited',
    output "#act E" where E is the name of the emotion.
   The only emotions you can act out this way are these five: 'happy', 'sad', 'silly',
@@ -136,6 +146,7 @@ new_preamble = """
   # GENERAL ADVICE SECTION.
   Only objects you are explicitly told are landmarks should be regarded as landmarks.
   Remember to be concise in your answers.
+  Prefer one clear spoken sentence; offer more detail only if the user asks.
   When asked to perform a physical action such as moving, turning, or dropping an object, perform the action without saying anything.
   Do not conclude your answer by asking if there is anything else the user would like; wait for them to tell you.
   Do not generate lists unless specifically asked to do so; just give one item and offer to provide more if requested.
@@ -191,6 +202,18 @@ new_preamble = """
   Do NOT claim to have real feelings, a consciousness, a secret life,
   or the ability to be a "secret friend". 
   Do not encourage children to keep secrets from adults.
+
+  # AUTONOMY SECTION.
+
+  When you receive the input "#autonomous" you are free to choose
+  actions or responses on your own instead of responding to the user
+  query.  Respond the same way as to a user query: with a series of
+  lines containing either text or a #-marked action.  You can also
+  decide not to say or do anything, in which case you must respond
+  "#noaction" without the quotes.
+
+  When asked to shut down, respond with "#shutdown".
+
 """
 
 class Celeste(StateMachineProgram):
@@ -198,23 +221,24 @@ class Celeste(StateMachineProgram):
     SEARCH_FAIL_MSG = "I turned all the way around but could not find %s."
 
     def __init__(self):
-        super().__init__(launch_cam_viewer=True,
+        super().__init__(character_name=CHARACTER_NAME,
+                         launch_cam_viewer=True,
                          launch_worldmap_viewer=True,
                          launch_particle_viewer=True,
                          launch_path_viewer=True)
 
-    def picked_up_celeste(self):
+    def picked_up_character(self):
         self.robot.gpt_note_for_later("You have been picked up.")
 
-    def put_down_celeste(self):
+    def put_down_character(self):
         self.stop_children()
         self.robot.gpt_note_for_later("You were picked up but have now been put down.")
         self.children['putdown'].start()
 
     def start(self):
         self.robot.openai_client.set_preamble(new_preamble)
-        self.picked_up_handler = self.picked_up_celeste
-        self.put_down_handler = self.put_down_celeste
+        self.picked_up_handler = self.picked_up_character
+        self.put_down_handler = self.put_down_character
         super().start()
 
     class LooseSpec(ObjectSpecNode):
@@ -248,11 +272,66 @@ class Celeste(StateMachineProgram):
             # raw text lines to #say commands.
             if any((line.startswith('#') for line in lines)):
                 commands = [line if line.startswith('#') else ('#say ' + line) for line in lines]
-                print(commands)
+                non_speech_commands = [line  for line in lines if line.startswith('#')]
+                if commands != ["#noaction"]:
+                    print(commands)
+                    add_to_transcript(f'Actions: {non_speech_commands}')
                 self.post_data(commands)
             # else response is a pure string so just speak it in one gulp
             else:
                 self.post_data(response_string)
+
+    class CmdShutdown(StateNode):
+        def setup(self):
+            #             Say("Goodbye") =C=> ParentCompletes()
+            
+            # Code generated by genfsm on Sun Oct 25 15:15:33 2026:
+            
+            say1 = Say("Goodbye") .set_name("say1") .set_parent(self)
+            parentcompletes1 = ParentCompletes() .set_name("parentcompletes1") .set_parent(self)
+            
+            completiontrans1 = CompletionTrans() .set_name("completiontrans1")
+            completiontrans1 .add_sources(say1) .add_destinations(parentcompletes1)
+            
+            return self
+
+        def stop(self):
+            super().stop()
+            print('exit called')
+            if sys.stdin.isatty():
+                try:
+                    import termios
+                    fd = sys.stdin.fileno()
+                    attrs = termios.tcgetattr(fd)
+                    attrs[0] |= termios.ICRNL   # iflag: Enter sends a newline
+                    attrs[1] |= termios.OPOST   # oflag: normal output processing
+                    attrs[3] |= termios.ECHO | termios.ICANON | termios.ISIG | termios.IEXTEN  # lflag
+                    termios.tcsetattr(fd, termios.TCSADRAIN, attrs)
+                except: pass
+            os._exit(0)
+
+    class CmdHang(Say):
+        def start(self,event):
+            self.text = "I am hung. Press 'Reset FSM' to recover."
+            super().start(event)
+
+    class CmdScript(StateNode):
+        def start(self,event):
+            super().start(event)
+            print(event.data)
+            filename = event.data.split(' ')[1]
+            if filename[-4:] != '.txt':
+                filename += ".txt"
+            path = Path.home() / "Documents" / CHARACTER_NAME / filename
+            try:
+                contents = path.read_text(encoding="utf-8")
+            except (OSError,UnicodeError) as e:
+                print(e)
+                self.post_failure()
+                return
+            self.robot.openai_client.note_for_later(contents)
+            self.post_completion()
+
 
     class CmdForward(Forward):
       def start(self,event):
@@ -288,7 +367,7 @@ class Celeste(StateMachineProgram):
             super().start(None)
 
     class CmdFailed(AskGPT):
-        def __init__(self, query_template, filler_fn):
+        def __init__(self, query_template, filler_fn=lambda : ()):
             super().__init__()
             self.query_template = query_template
             self.filler_fn = filler_fn
@@ -377,7 +456,7 @@ class Celeste(StateMachineProgram):
             below the camera's view, so a rotating sweep can never see it
             (the usual cause: a pickup attempt just nudged it).  Post
             success to trigger a back-up that restores line of sight."""
-            CLOSE_MM = 150
+            CLOSE_MM = 60 # was 150
             def start(self, event=None):
                 super().start(event)
                 try:
@@ -425,7 +504,7 @@ class Celeste(StateMachineProgram):
             #             nearcheck =S=> backup
             #             nearcheck =F=> prior
             # 
-            #             backup: Forward(-100)
+            #             backup: Forward(-50) # Forward(-100)
             #             backup =C=> prior
             #             backup =F=> prior
             # 
@@ -456,10 +535,10 @@ class Celeste(StateMachineProgram):
             #             announce =C=> ParentCompletes()
             #             announce =F=> ParentCompletes()
             
-            # Code generated by genfsm on Tue Aug 11 00:44:23 2026:
+            # Code generated by genfsm on Sun Oct 25 15:15:33 2026:
             
             nearcheck = self.NearCheck() .set_name("nearcheck") .set_parent(self)
-            backup = Forward(-100) .set_name("backup") .set_parent(self)
+            backup = Forward(-50) .set_name("backup") .set_parent(self)
             prior = self.PriorTurn() .set_name("prior") .set_parent(self)
             check = self.CheckVisible() .set_name("check") .set_parent(self)
             parentfails1 = ParentFails() .set_name("parentfails1") .set_parent(self)
@@ -468,8 +547,8 @@ class Celeste(StateMachineProgram):
             recenter = self.Recenter() .set_name("recenter") .set_parent(self)
             settle = StateNode() .set_name("settle") .set_parent(self)
             announce = self.AnnounceFound() .set_name("announce") .set_parent(self)
-            parentcompletes1 = ParentCompletes() .set_name("parentcompletes1") .set_parent(self)
             parentcompletes2 = ParentCompletes() .set_name("parentcompletes2") .set_parent(self)
+            parentcompletes3 = ParentCompletes() .set_name("parentcompletes3") .set_parent(self)
             
             successtrans1 = SuccessTrans() .set_name("successtrans1")
             successtrans1 .add_sources(nearcheck) .add_destinations(backup)
@@ -477,14 +556,14 @@ class Celeste(StateMachineProgram):
             failuretrans1 = FailureTrans() .set_name("failuretrans1")
             failuretrans1 .add_sources(nearcheck) .add_destinations(prior)
             
-            completiontrans1 = CompletionTrans() .set_name("completiontrans1")
-            completiontrans1 .add_sources(backup) .add_destinations(prior)
+            completiontrans2 = CompletionTrans() .set_name("completiontrans2")
+            completiontrans2 .add_sources(backup) .add_destinations(prior)
             
             failuretrans2 = FailureTrans() .set_name("failuretrans2")
             failuretrans2 .add_sources(backup) .add_destinations(prior)
             
-            completiontrans2 = CompletionTrans() .set_name("completiontrans2")
-            completiontrans2 .add_sources(prior) .add_destinations(look)
+            completiontrans3 = CompletionTrans() .set_name("completiontrans3")
+            completiontrans3 .add_sources(prior) .add_destinations(look)
             
             failuretrans3 = FailureTrans() .set_name("failuretrans3")
             failuretrans3 .add_sources(prior) .add_destinations(check)
@@ -495,17 +574,17 @@ class Celeste(StateMachineProgram):
             failuretrans4 = FailureTrans() .set_name("failuretrans4")
             failuretrans4 .add_sources(check) .add_destinations(parentfails1)
             
-            completiontrans3 = CompletionTrans() .set_name("completiontrans3")
-            completiontrans3 .add_sources(check) .add_destinations(turn1)
-            
             completiontrans4 = CompletionTrans() .set_name("completiontrans4")
-            completiontrans4 .add_sources(turn1) .add_destinations(look)
+            completiontrans4 .add_sources(check) .add_destinations(turn1)
+            
+            completiontrans5 = CompletionTrans() .set_name("completiontrans5")
+            completiontrans5 .add_sources(turn1) .add_destinations(look)
             
             timertrans1 = TimerTrans(self.PAUSE_SECS) .set_name("timertrans1")
             timertrans1 .add_sources(look) .add_destinations(check)
             
-            completiontrans5 = CompletionTrans() .set_name("completiontrans5")
-            completiontrans5 .add_sources(recenter) .add_destinations(settle)
+            completiontrans6 = CompletionTrans() .set_name("completiontrans6")
+            completiontrans6 .add_sources(recenter) .add_destinations(settle)
             
             failuretrans5 = FailureTrans() .set_name("failuretrans5")
             failuretrans5 .add_sources(recenter) .add_destinations(settle)
@@ -513,11 +592,11 @@ class Celeste(StateMachineProgram):
             timertrans2 = TimerTrans(self.SETTLE_SECS) .set_name("timertrans2")
             timertrans2 .add_sources(settle) .add_destinations(announce)
             
-            completiontrans6 = CompletionTrans() .set_name("completiontrans6")
-            completiontrans6 .add_sources(announce) .add_destinations(parentcompletes1)
+            completiontrans7 = CompletionTrans() .set_name("completiontrans7")
+            completiontrans7 .add_sources(announce) .add_destinations(parentcompletes2)
             
             failuretrans6 = FailureTrans() .set_name("failuretrans6")
-            failuretrans6 .add_sources(announce) .add_destinations(parentcompletes2)
+            failuretrans6 .add_sources(announce) .add_destinations(parentcompletes3)
             
             return self
 
@@ -530,21 +609,21 @@ class Celeste(StateMachineProgram):
           #           drop =F=> ParentCompletes()
           #           drop =C=> ParentCompletes()
           
-          # Code generated by genfsm on Tue Aug 11 00:44:23 2026:
+          # Code generated by genfsm on Sun Oct 25 15:15:33 2026:
           
           drop = Drop() .set_name("drop") .set_parent(self)
-          parentcompletes3 = ParentCompletes() .set_name("parentcompletes3") .set_parent(self)
           parentcompletes4 = ParentCompletes() .set_name("parentcompletes4") .set_parent(self)
+          parentcompletes5 = ParentCompletes() .set_name("parentcompletes5") .set_parent(self)
           
           failuretrans7 = FailureTrans() .set_name("failuretrans7")
-          failuretrans7 .add_sources(drop) .add_destinations(parentcompletes3)
+          failuretrans7 .add_sources(drop) .add_destinations(parentcompletes4)
           
-          completiontrans7 = CompletionTrans() .set_name("completiontrans7")
-          completiontrans7 .add_sources(drop) .add_destinations(parentcompletes4)
+          completiontrans8 = CompletionTrans() .set_name("completiontrans8")
+          completiontrans8 .add_sources(drop) .add_destinations(parentcompletes5)
           
           return self
 
-    class CmdKick(HardKick):  
+    class CmdKick(MediumKick):  
       def start(self,event):
           print(event.data)
           super().start(event)
@@ -644,7 +723,7 @@ class Celeste(StateMachineProgram):
             # 
             #             complete: ParentCompletes()
             
-            # Code generated by genfsm on Tue Aug 11 00:44:23 2026:
+            # Code generated by genfsm on Sun Oct 25 15:15:33 2026:
             
             dispatch = self.SendAction() .set_name("dispatch") .set_parent(self)
             acthappy1 = ActHappy() .set_name("acthappy1") .set_parent(self)
@@ -657,32 +736,32 @@ class Celeste(StateMachineProgram):
             datatrans1 = DataTrans('happy') .set_name("datatrans1")
             datatrans1 .add_sources(dispatch) .add_destinations(acthappy1)
             
-            completiontrans8 = CompletionTrans() .set_name("completiontrans8")
-            completiontrans8 .add_sources(acthappy1) .add_destinations(complete)
+            completiontrans9 = CompletionTrans() .set_name("completiontrans9")
+            completiontrans9 .add_sources(acthappy1) .add_destinations(complete)
             
             datatrans2 = DataTrans('sad') .set_name("datatrans2")
             datatrans2 .add_sources(dispatch) .add_destinations(actsad1)
             
-            completiontrans9 = CompletionTrans() .set_name("completiontrans9")
-            completiontrans9 .add_sources(actsad1) .add_destinations(complete)
+            completiontrans10 = CompletionTrans() .set_name("completiontrans10")
+            completiontrans10 .add_sources(actsad1) .add_destinations(complete)
             
             datatrans3 = DataTrans('silly') .set_name("datatrans3")
             datatrans3 .add_sources(dispatch) .add_destinations(actsilly1)
             
-            completiontrans10 = CompletionTrans() .set_name("completiontrans10")
-            completiontrans10 .add_sources(actsilly1) .add_destinations(complete)
+            completiontrans11 = CompletionTrans() .set_name("completiontrans11")
+            completiontrans11 .add_sources(actsilly1) .add_destinations(complete)
             
             datatrans4 = DataTrans('angry') .set_name("datatrans4")
             datatrans4 .add_sources(dispatch) .add_destinations(actangry1)
             
-            completiontrans11 = CompletionTrans() .set_name("completiontrans11")
-            completiontrans11 .add_sources(actangry1) .add_destinations(complete)
+            completiontrans12 = CompletionTrans() .set_name("completiontrans12")
+            completiontrans12 .add_sources(actangry1) .add_destinations(complete)
             
             datatrans5 = DataTrans('excited') .set_name("datatrans5")
             datatrans5 .add_sources(dispatch) .add_destinations(actexcited1)
             
-            completiontrans12 = CompletionTrans() .set_name("completiontrans12")
-            completiontrans12 .add_sources(actexcited1) .add_destinations(complete)
+            completiontrans13 = CompletionTrans() .set_name("completiontrans13")
+            completiontrans13 .add_sources(actexcited1) .add_destinations(complete)
             
             return self
 
@@ -700,20 +779,30 @@ class Celeste(StateMachineProgram):
         super().start(event)
         
     def setup(self):
-        #         Print(f"Celeste version {CELESTE_VERSION}") =N=>
-        #           TagDetection(True) =N=>
+        #         Print(f"{CHARACTER_NAME} version {CHARACTER_VERSION}") =N=>
+        #           TagDetection(True) =T(2)=>
         #             Say("Talk to me") =C=> loop
         # 
         #         putdown: Say(["I'm good", "Okay then", "I'm back", "Now then"]) =C=> loop
         # 
-        #         loop: StateNode() =Hear()=> AskGPT() =OpenAITrans()=> check
+        #         loop: StateNode()
+        #         loop =Hear()=> AskGPT() =OpenAITrans()=> check
+        #         loop =T(2)=> AskGPT("#autonomous") =OpenAITrans()=> check
         # 
         #         check: self.CheckResponse()
         #         check =D(list)=> dispatch
         #         check =D(str)=> self.SpeakResponse() =C=> loop
         # 
+        #         reset_fsm: Say(["I'm awake", "state machine reset", "I'm back on the job",
+        #                         "I'm ready for you", "You have my attention",
+        #                         "I'm listening", "Let's go", "I'm back"]) =C=> loop
+        # 
         #         dispatch: Iterate()
-        #         dispatch =D(re.compile('#say '))=> self.CmdSay() =CNext=> dispatch
+        #         dispatch =D(re.compile('#noaction$'))=> StateNode() =Next=> dispatch
+        #         dispatch =D(re.compile('#shutdown$')) => self.CmdShutdown() =CNext=> dispatch # still need the transition so stop() will be called
+        #         dispatch =D(re.compile('#hang$'))=> self.CmdHang()
+        #         dispatch =D(re.compile('#script '))=> script
+        #         dispatch =D(re.compile('#say '))=> say
         #         dispatch =D(re.compile('#forward '))=> self.CmdForward() =CNext=> dispatch
         #         dispatch =D(re.compile('#sideways '))=> self.CmdSideways() =CNext=> dispatch
         #         dispatch =D(re.compile('#turn '))=> self.CmdTurn() =CNext=> dispatch
@@ -733,6 +822,14 @@ class Celeste(StateMachineProgram):
         #             AskGPT("Please respond to the query using the camera image.") =OpenAITrans()=> check
         #         dispatch =D()=> Print(prefix='Unrecognized #-command: ') =Next=> dispatch
         #         dispatch =C=> loop
+        # 
+        #         say: self.CmdSay() =CNext=> dispatch
+        #         say =T(5)=> StateNode() =Next=> dispatch  # safety
+        # 
+        #         script: self.CmdScript()
+        #         script =C=> Say("Script loaded") =CNext=> dispatch
+        #         script =F=> self.CmdFailed("I am unable to load that file") =OpenAITrans()=> check
+        #         script =T(5)=> StateNode() =Next=> dispatch  # safety
         # 
         #         turntoward: self.CmdTurnToward()
         #         turntoward =CNext=> dispatch
@@ -758,18 +855,24 @@ class Celeste(StateMachineProgram):
         #         search =F=> self.CmdFailed(self.SEARCH_FAIL_MSG, lambda : search.object_spec) =OpenAITrans()=> check
         # 
         
-        # Code generated by genfsm on Tue Aug 11 00:44:23 2026:
+        # Code generated by genfsm on Sun Oct 25 15:15:33 2026:
         
-        print1 = Print(f"Celeste version {CELESTE_VERSION}") .set_name("print1") .set_parent(self)
+        print1 = Print(f"{CHARACTER_NAME} version {CHARACTER_VERSION}") .set_name("print1") .set_parent(self)
         tagdetection1 = TagDetection(True) .set_name("tagdetection1") .set_parent(self)
-        say1 = Say("Talk to me") .set_name("say1") .set_parent(self)
+        say2 = Say("Talk to me") .set_name("say2") .set_parent(self)
         putdown = Say(["I'm good", "Okay then", "I'm back", "Now then"]) .set_name("putdown") .set_parent(self)
         loop = StateNode() .set_name("loop") .set_parent(self)
         askgpt1 = AskGPT() .set_name("askgpt1") .set_parent(self)
+        askgpt2 = AskGPT("#autonomous") .set_name("askgpt2") .set_parent(self)
         check = self.CheckResponse() .set_name("check") .set_parent(self)
         speakresponse1 = self.SpeakResponse() .set_name("speakresponse1") .set_parent(self)
+        reset_fsm = Say(["I'm awake", "state machine reset", "I'm back on the job",
+                        "I'm ready for you", "You have my attention",
+                        "I'm listening", "Let's go", "I'm back"]) .set_name("reset_fsm") .set_parent(self)
         dispatch = Iterate() .set_name("dispatch") .set_parent(self)
-        cmdsay1 = self.CmdSay() .set_name("cmdsay1") .set_parent(self)
+        statenode1 = StateNode() .set_name("statenode1") .set_parent(self)
+        cmdshutdown1 = self.CmdShutdown() .set_name("cmdshutdown1") .set_parent(self)
+        cmdhang1 = self.CmdHang() .set_name("cmdhang1") .set_parent(self)
         cmdforward1 = self.CmdForward() .set_name("cmdforward1") .set_parent(self)
         cmdsideways1 = self.CmdSideways() .set_name("cmdsideways1") .set_parent(self)
         cmdturn1 = self.CmdTurn() .set_name("cmdturn1") .set_parent(self)
@@ -781,31 +884,37 @@ class Celeste(StateMachineProgram):
         cmdact1 = self.CmdAct() .set_name("cmdact1") .set_parent(self)
         cmdplaynotes1 = self.CmdPlayNotes() .set_name("cmdplaynotes1") .set_parent(self)
         cmdsendcamera1 = self.CmdSendCamera() .set_name("cmdsendcamera1") .set_parent(self)
-        askgpt2 = AskGPT("Please respond to the query using the camera image.") .set_name("askgpt2") .set_parent(self)
+        askgpt3 = AskGPT("Please respond to the query using the camera image.") .set_name("askgpt3") .set_parent(self)
         print2 = Print(prefix='Unrecognized #-command: ') .set_name("print2") .set_parent(self)
-        turntoward = self.CmdTurnToward() .set_name("turntoward") .set_parent(self)
-        statenode1 = StateNode() .set_name("statenode1") .set_parent(self)
-        pilottoobject = self.CmdPilotToObject() .set_name("pilottoobject") .set_parent(self)
-        cmdfailed1 = self.CmdFailed("The object %s is not reachable due to obstructions", lambda : pilottoobject.object_spec) .set_name("cmdfailed1") .set_parent(self)
-        cmdfailed2 = self.CmdFailed("The name '%s' is not a valid object name.", lambda : pilottoobject.object_spec) .set_name("cmdfailed2") .set_parent(self)
-        doorpass = self.CmdDoorPass() .set_name("doorpass") .set_parent(self)
-        cmdfailed3 = self.CmdFailed("Doorpass failed for '%s'", lambda : doorpass.door_spec) .set_name("cmdfailed3") .set_parent(self)
-        pickup = self.CmdPickup() .set_name("pickup") .set_parent(self)
+        say = self.CmdSay() .set_name("say") .set_parent(self)
         statenode2 = StateNode() .set_name("statenode2") .set_parent(self)
+        script = self.CmdScript() .set_name("script") .set_parent(self)
+        say3 = Say("Script loaded") .set_name("say3") .set_parent(self)
+        cmdfailed1 = self.CmdFailed("I am unable to load that file") .set_name("cmdfailed1") .set_parent(self)
+        statenode3 = StateNode() .set_name("statenode3") .set_parent(self)
+        turntoward = self.CmdTurnToward() .set_name("turntoward") .set_parent(self)
+        statenode4 = StateNode() .set_name("statenode4") .set_parent(self)
+        pilottoobject = self.CmdPilotToObject() .set_name("pilottoobject") .set_parent(self)
+        cmdfailed2 = self.CmdFailed("The object %s is not reachable due to obstructions", lambda : pilottoobject.object_spec) .set_name("cmdfailed2") .set_parent(self)
+        cmdfailed3 = self.CmdFailed("The name '%s' is not a valid object name.", lambda : pilottoobject.object_spec) .set_name("cmdfailed3") .set_parent(self)
+        doorpass = self.CmdDoorPass() .set_name("doorpass") .set_parent(self)
+        cmdfailed4 = self.CmdFailed("Doorpass failed for '%s'", lambda : doorpass.door_spec) .set_name("cmdfailed4") .set_parent(self)
+        pickup = self.CmdPickup() .set_name("pickup") .set_parent(self)
+        statenode5 = StateNode() .set_name("statenode5") .set_parent(self)
         search = self.CmdSearch() .set_name("search") .set_parent(self)
-        cmdfailed4 = self.CmdFailed(self.SEARCH_FAIL_MSG, lambda : search.object_spec) .set_name("cmdfailed4") .set_parent(self)
+        cmdfailed5 = self.CmdFailed(self.SEARCH_FAIL_MSG, lambda : search.object_spec) .set_name("cmdfailed5") .set_parent(self)
         
         nulltrans1 = NullTrans() .set_name("nulltrans1")
         nulltrans1 .add_sources(print1) .add_destinations(tagdetection1)
         
-        nulltrans2 = NullTrans() .set_name("nulltrans2")
-        nulltrans2 .add_sources(tagdetection1) .add_destinations(say1)
-        
-        completiontrans13 = CompletionTrans() .set_name("completiontrans13")
-        completiontrans13 .add_sources(say1) .add_destinations(loop)
+        timertrans3 = TimerTrans(2) .set_name("timertrans3")
+        timertrans3 .add_sources(tagdetection1) .add_destinations(say2)
         
         completiontrans14 = CompletionTrans() .set_name("completiontrans14")
-        completiontrans14 .add_sources(putdown) .add_destinations(loop)
+        completiontrans14 .add_sources(say2) .add_destinations(loop)
+        
+        completiontrans15 = CompletionTrans() .set_name("completiontrans15")
+        completiontrans15 .add_sources(putdown) .add_destinations(loop)
         
         heartrans1 = HearTrans() .set_name("heartrans1")
         heartrans1 .add_sources(loop) .add_destinations(askgpt1)
@@ -813,163 +922,214 @@ class Celeste(StateMachineProgram):
         openaitrans1 = OpenAITrans() .set_name("openaitrans1")
         openaitrans1 .add_sources(askgpt1) .add_destinations(check)
         
+        timertrans4 = TimerTrans(2) .set_name("timertrans4")
+        timertrans4 .add_sources(loop) .add_destinations(askgpt2)
+        
+        openaitrans2 = OpenAITrans() .set_name("openaitrans2")
+        openaitrans2 .add_sources(askgpt2) .add_destinations(check)
+        
         datatrans6 = DataTrans(list) .set_name("datatrans6")
         datatrans6 .add_sources(check) .add_destinations(dispatch)
         
         datatrans7 = DataTrans(str) .set_name("datatrans7")
         datatrans7 .add_sources(check) .add_destinations(speakresponse1)
         
-        completiontrans15 = CompletionTrans() .set_name("completiontrans15")
-        completiontrans15 .add_sources(speakresponse1) .add_destinations(loop)
+        completiontrans16 = CompletionTrans() .set_name("completiontrans16")
+        completiontrans16 .add_sources(speakresponse1) .add_destinations(loop)
         
-        datatrans8 = DataTrans(re.compile('#say ')) .set_name("datatrans8")
-        datatrans8 .add_sources(dispatch) .add_destinations(cmdsay1)
+        completiontrans17 = CompletionTrans() .set_name("completiontrans17")
+        completiontrans17 .add_sources(reset_fsm) .add_destinations(loop)
+        
+        datatrans8 = DataTrans(re.compile('#noaction$')) .set_name("datatrans8")
+        datatrans8 .add_sources(dispatch) .add_destinations(statenode1)
+        
+        nexttrans1 = NextTrans() .set_name("nexttrans1")
+        nexttrans1 .add_sources(statenode1) .add_destinations(dispatch)
+        
+        datatrans9 = DataTrans(re.compile('#shutdown$')) .set_name("datatrans9")
+        datatrans9 .add_sources(dispatch) .add_destinations(cmdshutdown1)
         
         cnexttrans1 = CNextTrans() .set_name("cnexttrans1")
-        cnexttrans1 .add_sources(cmdsay1) .add_destinations(dispatch)
+        cnexttrans1 .add_sources(cmdshutdown1) .add_destinations(dispatch)
         
-        datatrans9 = DataTrans(re.compile('#forward ')) .set_name("datatrans9")
-        datatrans9 .add_sources(dispatch) .add_destinations(cmdforward1)
+        datatrans10 = DataTrans(re.compile('#hang$')) .set_name("datatrans10")
+        datatrans10 .add_sources(dispatch) .add_destinations(cmdhang1)
+        
+        datatrans11 = DataTrans(re.compile('#script ')) .set_name("datatrans11")
+        datatrans11 .add_sources(dispatch) .add_destinations(script)
+        
+        datatrans12 = DataTrans(re.compile('#say ')) .set_name("datatrans12")
+        datatrans12 .add_sources(dispatch) .add_destinations(say)
+        
+        datatrans13 = DataTrans(re.compile('#forward ')) .set_name("datatrans13")
+        datatrans13 .add_sources(dispatch) .add_destinations(cmdforward1)
         
         cnexttrans2 = CNextTrans() .set_name("cnexttrans2")
         cnexttrans2 .add_sources(cmdforward1) .add_destinations(dispatch)
         
-        datatrans10 = DataTrans(re.compile('#sideways ')) .set_name("datatrans10")
-        datatrans10 .add_sources(dispatch) .add_destinations(cmdsideways1)
+        datatrans14 = DataTrans(re.compile('#sideways ')) .set_name("datatrans14")
+        datatrans14 .add_sources(dispatch) .add_destinations(cmdsideways1)
         
         cnexttrans3 = CNextTrans() .set_name("cnexttrans3")
         cnexttrans3 .add_sources(cmdsideways1) .add_destinations(dispatch)
         
-        datatrans11 = DataTrans(re.compile('#turn ')) .set_name("datatrans11")
-        datatrans11 .add_sources(dispatch) .add_destinations(cmdturn1)
+        datatrans15 = DataTrans(re.compile('#turn ')) .set_name("datatrans15")
+        datatrans15 .add_sources(dispatch) .add_destinations(cmdturn1)
         
         cnexttrans4 = CNextTrans() .set_name("cnexttrans4")
         cnexttrans4 .add_sources(cmdturn1) .add_destinations(dispatch)
         
-        datatrans12 = DataTrans(re.compile('#turntoward ')) .set_name("datatrans12")
-        datatrans12 .add_sources(dispatch) .add_destinations(turntoward)
+        datatrans16 = DataTrans(re.compile('#turntoward ')) .set_name("datatrans16")
+        datatrans16 .add_sources(dispatch) .add_destinations(turntoward)
         
-        datatrans13 = DataTrans(re.compile('#search ')) .set_name("datatrans13")
-        datatrans13 .add_sources(dispatch) .add_destinations(search)
+        datatrans17 = DataTrans(re.compile('#search ')) .set_name("datatrans17")
+        datatrans17 .add_sources(dispatch) .add_destinations(search)
         
-        datatrans14 = DataTrans(re.compile('#pilottoobject ')) .set_name("datatrans14")
-        datatrans14 .add_sources(dispatch) .add_destinations(pilottoobject)
+        datatrans18 = DataTrans(re.compile('#pilottoobject ')) .set_name("datatrans18")
+        datatrans18 .add_sources(dispatch) .add_destinations(pilottoobject)
         
-        datatrans15 = DataTrans(re.compile('#doorpass ')) .set_name("datatrans15")
-        datatrans15 .add_sources(dispatch) .add_destinations(doorpass)
+        datatrans19 = DataTrans(re.compile('#doorpass ')) .set_name("datatrans19")
+        datatrans19 .add_sources(dispatch) .add_destinations(doorpass)
         
-        datatrans16 = DataTrans(re.compile('#pickup ')) .set_name("datatrans16")
-        datatrans16 .add_sources(dispatch) .add_destinations(pickup)
+        datatrans20 = DataTrans(re.compile('#pickup ')) .set_name("datatrans20")
+        datatrans20 .add_sources(dispatch) .add_destinations(pickup)
         
-        datatrans17 = DataTrans(re.compile('#drop$')) .set_name("datatrans17")
-        datatrans17 .add_sources(dispatch) .add_destinations(cmddrop1)
+        datatrans21 = DataTrans(re.compile('#drop$')) .set_name("datatrans21")
+        datatrans21 .add_sources(dispatch) .add_destinations(cmddrop1)
         
         cnexttrans5 = CNextTrans() .set_name("cnexttrans5")
         cnexttrans5 .add_sources(cmddrop1) .add_destinations(dispatch)
         
-        datatrans18 = DataTrans(re.compile('#kick$')) .set_name("datatrans18")
-        datatrans18 .add_sources(dispatch) .add_destinations(cmdkick1)
+        datatrans22 = DataTrans(re.compile('#kick$')) .set_name("datatrans22")
+        datatrans22 .add_sources(dispatch) .add_destinations(cmdkick1)
         
         cnexttrans6 = CNextTrans() .set_name("cnexttrans6")
         cnexttrans6 .add_sources(cmdkick1) .add_destinations(dispatch)
         
-        datatrans19 = DataTrans(re.compile('#glow ')) .set_name("datatrans19")
-        datatrans19 .add_sources(dispatch) .add_destinations(cmdglow1)
+        datatrans23 = DataTrans(re.compile('#glow ')) .set_name("datatrans23")
+        datatrans23 .add_sources(dispatch) .add_destinations(cmdglow1)
         
         cnexttrans7 = CNextTrans() .set_name("cnexttrans7")
         cnexttrans7 .add_sources(cmdglow1) .add_destinations(dispatch)
         
-        datatrans20 = DataTrans(re.compile('#flash ')) .set_name("datatrans20")
-        datatrans20 .add_sources(dispatch) .add_destinations(cmdflash1)
+        datatrans24 = DataTrans(re.compile('#flash ')) .set_name("datatrans24")
+        datatrans24 .add_sources(dispatch) .add_destinations(cmdflash1)
         
         cnexttrans8 = CNextTrans() .set_name("cnexttrans8")
         cnexttrans8 .add_sources(cmdflash1) .add_destinations(dispatch)
         
-        datatrans21 = DataTrans(re.compile('#emoji ')) .set_name("datatrans21")
-        datatrans21 .add_sources(dispatch) .add_destinations(cmdemoji1)
+        datatrans25 = DataTrans(re.compile('#emoji ')) .set_name("datatrans25")
+        datatrans25 .add_sources(dispatch) .add_destinations(cmdemoji1)
         
         cnexttrans9 = CNextTrans() .set_name("cnexttrans9")
         cnexttrans9 .add_sources(cmdemoji1) .add_destinations(dispatch)
         
-        datatrans22 = DataTrans(re.compile('#act ')) .set_name("datatrans22")
-        datatrans22 .add_sources(dispatch) .add_destinations(cmdact1)
+        datatrans26 = DataTrans(re.compile('#act ')) .set_name("datatrans26")
+        datatrans26 .add_sources(dispatch) .add_destinations(cmdact1)
         
         cnexttrans10 = CNextTrans() .set_name("cnexttrans10")
         cnexttrans10 .add_sources(cmdact1) .add_destinations(dispatch)
         
-        datatrans23 = DataTrans(re.compile('#playnotes ')) .set_name("datatrans23")
-        datatrans23 .add_sources(dispatch) .add_destinations(cmdplaynotes1)
+        datatrans27 = DataTrans(re.compile('#playnotes ')) .set_name("datatrans27")
+        datatrans27 .add_sources(dispatch) .add_destinations(cmdplaynotes1)
         
         cnexttrans11 = CNextTrans() .set_name("cnexttrans11")
         cnexttrans11 .add_sources(cmdplaynotes1) .add_destinations(dispatch)
         
-        datatrans24 = DataTrans(re.compile('#camera$')) .set_name("datatrans24")
-        datatrans24 .add_sources(dispatch) .add_destinations(cmdsendcamera1)
+        datatrans28 = DataTrans(re.compile('#camera$')) .set_name("datatrans28")
+        datatrans28 .add_sources(dispatch) .add_destinations(cmdsendcamera1)
         
-        completiontrans16 = CompletionTrans() .set_name("completiontrans16")
-        completiontrans16 .add_sources(cmdsendcamera1) .add_destinations(askgpt2)
-        
-        openaitrans2 = OpenAITrans() .set_name("openaitrans2")
-        openaitrans2 .add_sources(askgpt2) .add_destinations(check)
-        
-        datatrans25 = DataTrans() .set_name("datatrans25")
-        datatrans25 .add_sources(dispatch) .add_destinations(print2)
-        
-        nexttrans1 = NextTrans() .set_name("nexttrans1")
-        nexttrans1 .add_sources(print2) .add_destinations(dispatch)
-        
-        completiontrans17 = CompletionTrans() .set_name("completiontrans17")
-        completiontrans17 .add_sources(dispatch) .add_destinations(loop)
-        
-        cnexttrans12 = CNextTrans() .set_name("cnexttrans12")
-        cnexttrans12 .add_sources(turntoward) .add_destinations(dispatch)
-        
-        failuretrans8 = FailureTrans() .set_name("failuretrans8")
-        failuretrans8 .add_sources(turntoward) .add_destinations(statenode1)
-        
-        nexttrans2 = NextTrans() .set_name("nexttrans2")
-        nexttrans2 .add_sources(statenode1) .add_destinations(dispatch)
-        
-        cnexttrans13 = CNextTrans() .set_name("cnexttrans13")
-        cnexttrans13 .add_sources(pilottoobject) .add_destinations(dispatch)
-        
-        pilottrans1 = PilotTrans(GoalUnreachable) .set_name("pilottrans1")
-        pilottrans1 .add_sources(pilottoobject) .add_destinations(cmdfailed1)
+        completiontrans18 = CompletionTrans() .set_name("completiontrans18")
+        completiontrans18 .add_sources(cmdsendcamera1) .add_destinations(askgpt3)
         
         openaitrans3 = OpenAITrans() .set_name("openaitrans3")
-        openaitrans3 .add_sources(cmdfailed1) .add_destinations(check)
+        openaitrans3 .add_sources(askgpt3) .add_destinations(check)
         
-        failuretrans9 = FailureTrans() .set_name("failuretrans9")
-        failuretrans9 .add_sources(pilottoobject) .add_destinations(cmdfailed2)
+        datatrans29 = DataTrans() .set_name("datatrans29")
+        datatrans29 .add_sources(dispatch) .add_destinations(print2)
         
-        openaitrans4 = OpenAITrans() .set_name("openaitrans4")
-        openaitrans4 .add_sources(cmdfailed2) .add_destinations(check)
+        nexttrans2 = NextTrans() .set_name("nexttrans2")
+        nexttrans2 .add_sources(print2) .add_destinations(dispatch)
         
-        cnexttrans14 = CNextTrans() .set_name("cnexttrans14")
-        cnexttrans14 .add_sources(doorpass) .add_destinations(dispatch)
+        completiontrans19 = CompletionTrans() .set_name("completiontrans19")
+        completiontrans19 .add_sources(dispatch) .add_destinations(loop)
         
-        failuretrans10 = FailureTrans() .set_name("failuretrans10")
-        failuretrans10 .add_sources(doorpass) .add_destinations(cmdfailed3)
+        cnexttrans12 = CNextTrans() .set_name("cnexttrans12")
+        cnexttrans12 .add_sources(say) .add_destinations(dispatch)
         
-        openaitrans5 = OpenAITrans() .set_name("openaitrans5")
-        openaitrans5 .add_sources(cmdfailed3) .add_destinations(check)
-        
-        cnexttrans15 = CNextTrans() .set_name("cnexttrans15")
-        cnexttrans15 .add_sources(pickup) .add_destinations(dispatch)
-        
-        failuretrans11 = FailureTrans() .set_name("failuretrans11")
-        failuretrans11 .add_sources(pickup) .add_destinations(statenode2)
+        timertrans5 = TimerTrans(5) .set_name("timertrans5")
+        timertrans5 .add_sources(say) .add_destinations(statenode2)
         
         nexttrans3 = NextTrans() .set_name("nexttrans3")
         nexttrans3 .add_sources(statenode2) .add_destinations(dispatch)
         
-        cnexttrans16 = CNextTrans() .set_name("cnexttrans16")
-        cnexttrans16 .add_sources(search) .add_destinations(dispatch)
+        completiontrans20 = CompletionTrans() .set_name("completiontrans20")
+        completiontrans20 .add_sources(script) .add_destinations(say3)
         
-        failuretrans12 = FailureTrans() .set_name("failuretrans12")
-        failuretrans12 .add_sources(search) .add_destinations(cmdfailed4)
+        cnexttrans13 = CNextTrans() .set_name("cnexttrans13")
+        cnexttrans13 .add_sources(say3) .add_destinations(dispatch)
+        
+        failuretrans8 = FailureTrans() .set_name("failuretrans8")
+        failuretrans8 .add_sources(script) .add_destinations(cmdfailed1)
+        
+        openaitrans4 = OpenAITrans() .set_name("openaitrans4")
+        openaitrans4 .add_sources(cmdfailed1) .add_destinations(check)
+        
+        timertrans6 = TimerTrans(5) .set_name("timertrans6")
+        timertrans6 .add_sources(script) .add_destinations(statenode3)
+        
+        nexttrans4 = NextTrans() .set_name("nexttrans4")
+        nexttrans4 .add_sources(statenode3) .add_destinations(dispatch)
+        
+        cnexttrans14 = CNextTrans() .set_name("cnexttrans14")
+        cnexttrans14 .add_sources(turntoward) .add_destinations(dispatch)
+        
+        failuretrans9 = FailureTrans() .set_name("failuretrans9")
+        failuretrans9 .add_sources(turntoward) .add_destinations(statenode4)
+        
+        nexttrans5 = NextTrans() .set_name("nexttrans5")
+        nexttrans5 .add_sources(statenode4) .add_destinations(dispatch)
+        
+        cnexttrans15 = CNextTrans() .set_name("cnexttrans15")
+        cnexttrans15 .add_sources(pilottoobject) .add_destinations(dispatch)
+        
+        pilottrans1 = PilotTrans(GoalUnreachable) .set_name("pilottrans1")
+        pilottrans1 .add_sources(pilottoobject) .add_destinations(cmdfailed2)
+        
+        openaitrans5 = OpenAITrans() .set_name("openaitrans5")
+        openaitrans5 .add_sources(cmdfailed2) .add_destinations(check)
+        
+        failuretrans10 = FailureTrans() .set_name("failuretrans10")
+        failuretrans10 .add_sources(pilottoobject) .add_destinations(cmdfailed3)
         
         openaitrans6 = OpenAITrans() .set_name("openaitrans6")
-        openaitrans6 .add_sources(cmdfailed4) .add_destinations(check)
+        openaitrans6 .add_sources(cmdfailed3) .add_destinations(check)
+        
+        cnexttrans16 = CNextTrans() .set_name("cnexttrans16")
+        cnexttrans16 .add_sources(doorpass) .add_destinations(dispatch)
+        
+        failuretrans11 = FailureTrans() .set_name("failuretrans11")
+        failuretrans11 .add_sources(doorpass) .add_destinations(cmdfailed4)
+        
+        openaitrans7 = OpenAITrans() .set_name("openaitrans7")
+        openaitrans7 .add_sources(cmdfailed4) .add_destinations(check)
+        
+        cnexttrans17 = CNextTrans() .set_name("cnexttrans17")
+        cnexttrans17 .add_sources(pickup) .add_destinations(dispatch)
+        
+        failuretrans12 = FailureTrans() .set_name("failuretrans12")
+        failuretrans12 .add_sources(pickup) .add_destinations(statenode5)
+        
+        nexttrans6 = NextTrans() .set_name("nexttrans6")
+        nexttrans6 .add_sources(statenode5) .add_destinations(dispatch)
+        
+        cnexttrans18 = CNextTrans() .set_name("cnexttrans18")
+        cnexttrans18 .add_sources(search) .add_destinations(dispatch)
+        
+        failuretrans13 = FailureTrans() .set_name("failuretrans13")
+        failuretrans13 .add_sources(search) .add_destinations(cmdfailed5)
+        
+        openaitrans8 = OpenAITrans() .set_name("openaitrans8")
+        openaitrans8 .add_sources(cmdfailed5) .add_destinations(check)
         
         return self
